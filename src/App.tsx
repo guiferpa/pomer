@@ -3,8 +3,10 @@ import SeatSorter from './pages/SeatSorter';
 import TournamentTimer from './pages/TournamentTimer';
 
 function App() {
+  const basename = import.meta.env.BASE_URL;
+  
   return (
-    <Router>
+    <Router basename={basename}>
       <div className="min-h-screen bg-gray-900">
         <header className="bg-gray-800 border-b border-gray-700">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
