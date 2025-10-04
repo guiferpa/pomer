@@ -123,19 +123,20 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto h-screen flex flex-col">
-      <CardHeader className="flex flex-col gap-1 flex-shrink-0">
-        <div className="flex items-center justify-center gap-2">
-          <Logo color={selectedColor} size={32} />
-          <h1 className="text-2xl font-bold">{t("appName")}</h1>
-        </div>
-        <p className="text-center text-default-500">
-          {t("tournamentConfiguration")}
-        </p>
-      </CardHeader>
-      <CardBody className="flex-1 flex flex-col overflow-hidden min-h-0">
-        <form className="flex-1 flex flex-col" onSubmit={handleSubmit}>
-          <div className="flex-1 overflow-y-auto space-y-6 pr-2 min-h-0">
+    <div className="w-full max-w-2xl mx-auto flex flex-col">
+      <Card className="flex-1 flex flex-col">
+        <CardHeader className="flex flex-col gap-1 flex-shrink-0">
+          <div className="flex items-center justify-center gap-2">
+            <Logo color={selectedColor} size={32} />
+            <h1 className="text-2xl font-bold">{t("appName")}</h1>
+          </div>
+          <p className="text-center text-default-500">
+            {t("tournamentConfiguration")}
+          </p>
+        </CardHeader>
+        <CardBody className="flex flex-col overflow-hidden">
+          <form className="flex flex-col justify-between" onSubmit={handleSubmit}>
+            <div className="overflow-y-auto space-y-6">
             <Input
               isRequired
               label={t("tournamentNameLabel")}
@@ -311,23 +312,24 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             </div>
           </div>
 
-          <div className="flex-shrink-0 pt-4">
-            <Button
-              className="w-full"
-              color="primary"
-              size="lg"
-              style={{
-                backgroundColor: selectedColor,
-                color: "white",
-                transition: "background-color 0.8s ease-in-out",
-              }}
-              type="submit"
-            >
-              {t("startTournament")}
-            </Button>
-          </div>
-        </form>
-      </CardBody>
-    </Card>
+            <div className="pt-6">
+              <Button
+                className="w-full"
+                color="primary"
+                size="lg"
+                style={{
+                  backgroundColor: selectedColor,
+                  color: "white",
+                  transition: "background-color 0.8s ease-in-out",
+                }}
+                type="submit"
+              >
+                {t("startTournament")}
+              </Button>
+            </div>
+          </form>
+        </CardBody>
+      </Card>
+    </div>
   );
 };
