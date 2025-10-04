@@ -3,7 +3,7 @@ import type { TournamentConfig } from "@/types/tournament";
 import { useEffect } from "react";
 import { HeroUIProvider } from "@heroui/react";
 
-import { useTournament, useLocalStorage } from "@/hooks";
+import { useTournament, useLocalStorage, useAnalytics } from "@/hooks";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
 
@@ -18,6 +18,8 @@ function App() {
     nextLevel,
     resetTournament,
   } = useTournament();
+
+  const { trackEvent } = useAnalytics();
 
   // Verificar se o torneio está configurado baseado no estado salvo
   const isConfigured = state.config.blindStructure.length > 0;
@@ -36,10 +38,12 @@ function App() {
   const handleStartTournament = (config: TournamentConfig) => {
     setSavedConfig(config);
     startTournament(config);
+    trackEvent("tournament_started", "Tournament", config.name);
   };
 
   const handleReset = () => {
     resetTournament();
+    trackEvent("tournament_reset", "Tournament");
   };
 
   return (

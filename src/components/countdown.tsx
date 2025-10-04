@@ -9,7 +9,7 @@ import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
 import { formatTime, formatCurrency } from "@/utils/helpers";
-import { useI18n } from "@/hooks";
+import { useI18n, useAnalytics } from "@/hooks";
 
 interface CountdownProps {
   state: TournamentState;
@@ -49,6 +49,7 @@ export const Countdown: React.FC<CountdownProps> = ({
 }) => {
   const [showResetModal, setShowResetModal] = useState(false);
   const { t } = useI18n();
+  const { trackEvent } = useAnalytics();
 
   const currentLevel = state.config.blindStructure[state.currentLevel - 1];
   const nextLevel = state.config.blindStructure[state.currentLevel];
@@ -180,7 +181,10 @@ export const Countdown: React.FC<CountdownProps> = ({
               aria-label={isRunning ? t("pause" as any) : t("resume" as any)}
               color={isRunning ? "warning" : "success"}
               size="sm"
-              onClick={onToggle}
+              onClick={() => {
+                onToggle();
+                trackEvent(isRunning ? "tournament_paused" : "tournament_resumed", "Tournament");
+              }}
             >
               {isRunning ? (
                 <PauseIcon
@@ -200,7 +204,10 @@ export const Countdown: React.FC<CountdownProps> = ({
               aria-label={t("nextLevel" as any)}
               color="primary"
               size="sm"
-              onClick={onNextLevel}
+              onClick={() => {
+                onNextLevel();
+                trackEvent("level_skipped", "Tournament", `Level ${state.currentLevel}`);
+              }}
             >
               <NextIcon
                 size={16}
