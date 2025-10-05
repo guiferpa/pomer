@@ -12,11 +12,12 @@ import { useTheme } from "@heroui/use-theme";
 
 import { SettingsIcon } from "./icons";
 
-import { useI18n } from "@/hooks";
+import { useI18n, useAudio } from "@/hooks";
 
 export const SettingsMenu: React.FC = () => {
   const { theme, setTheme } = useTheme();
   const { language, setLanguage, t } = useI18n();
+  const { testSound } = useAudio();
   const [isOpen, setIsOpen] = useState(false);
 
   const themeOptions = [
@@ -90,6 +91,24 @@ export const SettingsMenu: React.FC = () => {
                         <SelectItem key={option.key}>{option.label}</SelectItem>
                       ))}
                     </Select>
+                  </div>
+
+                  {/* Configurações de Áudio */}
+                  <div className="flex flex-col gap-4">
+                    <span className="text-sm font-medium text-foreground">
+                      {t("soundEffects" as any)}
+                    </span>
+                    
+                    {/* Botão de teste */}
+                    <Button
+                      size="sm"
+                      variant="flat"
+                      color="primary"
+                      onClick={testSound}
+                      className="w-fit"
+                    >
+                      {t("testSound" as any)}
+                    </Button>
                   </div>
                 </div>
               </ModalBody>

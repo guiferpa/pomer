@@ -89,6 +89,14 @@ export const translations = {
     smallBlind: "Small Blind",
     bigBlind: "Big Blind",
     settings: "Configurações",
+
+    // Audio
+    soundEffects: "Efeitos Sonoros",
+    enableSounds: "Ativar sons",
+    volume: "Volume",
+    testSound: "Testar Som",
+    muted: "Mudo",
+    soundOn: "Som Ligado",
   },
 
   es: {
@@ -181,6 +189,14 @@ export const translations = {
     smallBlind: "Ciega Pequeña",
     bigBlind: "Ciega Grande",
     settings: "Configuraciones",
+
+    // Audio
+    soundEffects: "Efectos de Sonido",
+    enableSounds: "Activar sonidos",
+    volume: "Volumen",
+    testSound: "Probar Sonido",
+    muted: "Silenciado",
+    soundOn: "Sonido Activado",
   },
 
   en: {
@@ -272,6 +288,14 @@ export const translations = {
     smallBlind: "Small Blind",
     bigBlind: "Big Blind",
     settings: "Settings",
+
+    // Audio
+    soundEffects: "Sound Effects",
+    enableSounds: "Enable sounds",
+    volume: "Volume",
+    testSound: "Test Sound",
+    muted: "Muted",
+    soundOn: "Sound On",
   },
 };
 

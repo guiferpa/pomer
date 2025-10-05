@@ -9,7 +9,7 @@ import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
 import { formatTime, formatCurrency } from "@/utils/helpers";
-import { useI18n, useAnalytics } from "@/hooks";
+import { useI18n, useAnalytics, useAudio } from "@/hooks";
 
 interface CountdownProps {
   state: TournamentState;
@@ -50,6 +50,7 @@ export const Countdown: React.FC<CountdownProps> = ({
   const [showResetModal, setShowResetModal] = useState(false);
   const { t } = useI18n();
   const { trackEvent } = useAnalytics();
+  const { playSound } = useAudio();
 
   const currentLevel = state.config.blindStructure[state.currentLevel - 1];
   const nextLevel = state.config.blindStructure[state.currentLevel];
@@ -57,8 +58,15 @@ export const Countdown: React.FC<CountdownProps> = ({
   if (!currentLevel) {
     return (
       <Card className="w-full">
-        <CardBody className="text-center">
+        <CardBody className="text-center space-y-4">
           <p className="text-default-500">{t("noActiveLevel" as any)}</p>
+          <Button
+            color="primary"
+            variant="flat"
+            onClick={onReset}
+          >
+            {t("reset" as any)}
+          </Button>
         </CardBody>
       </Card>
     );
@@ -207,6 +215,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               onClick={() => {
                 onNextLevel();
                 trackEvent("level_skipped", "Tournament", `Level ${state.currentLevel}`);
+                playSound("level_change");
               }}
             >
               <NextIcon
