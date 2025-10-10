@@ -9,7 +9,7 @@ import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
 import { formatTime, formatCurrency } from "@/utils/helpers";
-import { useI18n, useAnalytics, useAudio } from "@/hooks";
+import { useI18n, useAnalytics, useAudio, useWakeLock } from "@/hooks";
 
 interface CountdownProps {
   state: TournamentState;
@@ -51,6 +51,17 @@ export const Countdown: React.FC<CountdownProps> = ({
   const { t } = useI18n();
   const { trackEvent } = useAnalytics();
   const { playSound } = useAudio();
+  
+  // Wake Lock para prevenir hibernação da tela quando o countdown estiver rodando
+  useWakeLock({
+    enabled: isRunning,
+    onError: (error) => {
+      console.warn('Wake Lock não disponível:', error.message);
+    },
+    onRelease: () => {
+      console.log('Wake Lock liberado');
+    },
+  });
 
   const currentLevel = state.config.blindStructure[state.currentLevel - 1];
   const nextLevel = state.config.blindStructure[state.currentLevel];
