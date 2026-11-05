@@ -9,7 +9,7 @@ substitui:
 
 Bugs encontrados na revisão de `src/` e reproduzidos com testes no HeroUI v2 (React 18 e 19). A correção vem depois dos upgrades de React e HeroUI. Esta lista ainda precisa passar por `/grilling` e `/to-tickets`.
 
-Os testes estão em `bugs.test.tsx`, nesta pasta, e descrevem o comportamento correto: vermelho significa bug presente. T16 e T18 dependem da estrutura do Select v2 e precisam ser reescritos depois da migração. Os números de linha referem-se ao commit `e9b04d2`.
+Os testes estão em `src/bugs.test.tsx` e descrevem o comportamento correto: `it.fails` marca um bug ainda aberto. Os números de linha referem-se ao commit `e9b04d2`.
 
 ## Alta gravidade
 
@@ -35,7 +35,7 @@ Com o intervalo padrão de 3 níveis, nenhuma estrutura termina corretamente: Pe
 | 11 | A cor e a estrutura salvas se perdem ao voltar ao formulário. | `form-config.tsx:68-69` | T15 |
 | 12 | O relógio não compensa o tempo ausente: avança só um nível e reinicia o tempo. | `useTournament.ts:135` | T5 |
 
-O teste T5 assume que o torneio segue a hora real durante a ausência. Essa decisão ainda está em aberto.
+O teste T5 assume que o torneio segue a hora real durante a ausência. Essa decisão foi confirmada em `spec/2026-11-05-fim-de-torneio-e-transicoes/spec.md`, que trata dos bugs 1 a 4, 8 a 10 e 12.
 
 ## Baixa gravidade
 

@@ -4,13 +4,21 @@ import type {
   BreakInfo,
 } from "@/types/tournament";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
+import { useAudio } from "./useAudio";
+
+import { minutesToSeconds } from "@/utils/helpers";
 import {
-  calculateTimeRemaining,
-  shouldTakeBreak,
-  getNextLevel,
-} from "@/utils/helpers";
+  advanceByTime,
+  currentDurationMinutes,
+  isTimeUp,
+  levelDurationMinutes,
+  repairSavedState,
+  skipLevel,
+  startTimeFor,
+  type TransitionResult,
+} from "@/utils/transitions";
 
 // Função para carregar estado do localStorage
 const loadTournamentState = (): TournamentState | null => {
@@ -52,32 +60,26 @@ const saveTournamentState = (state: TournamentState) => {
 };
 
 export const useTournament = () => {
+  // Alerta devido e ainda não tocado. Vive só na memória, nunca no estado salvo,
+  // para um refresh não repetir um alerta. Várias transições de uma vez ligam este
+  // valor uma só vez, e o efeito do alerta toca um único som.
+  const alertPending = useRef(false);
+
   const [state, setState] = useState<TournamentState>(() => {
-    const savedState = loadTournamentState();
+    const loadedState = loadTournamentState();
 
-    if (savedState) {
-      // Recalcular tempo restante baseado no tempo salvo
+    if (loadedState) {
       const now = new Date();
-      const currentLevelData =
-        savedState.config.blindStructure[savedState.currentLevel - 1];
 
-      if (savedState.isRunning && savedState.startTime && currentLevelData) {
-        const totalDuration = savedState.isBreak
-          ? savedState.config.breakDuration * 60
-          : currentLevelData.duration * 60;
+      // O torneio abre no ponto em que estaria pela hora real.
+      const { state: current, transitioned } = advanceByTime(
+        repairSavedState(loadedState, now),
+        now,
+      );
 
-        const elapsedSeconds = Math.floor(
-          (now.getTime() - savedState.startTime.getTime()) / 1000,
-        );
-        const remaining = Math.max(0, totalDuration - elapsedSeconds);
+      if (transitioned) alertPending.current = true;
 
-        return {
-          ...savedState,
-          timeRemaining: remaining,
-        };
-      }
-
-      return savedState;
+      return current;
     }
 
     // Estado padrão se não houver estado salvo
@@ -98,6 +100,40 @@ export const useTournament = () => {
     };
   });
 
+  const { playSound } = useAudio();
+
+  // Último estado, para calcular cada mudança uma única vez e fora das
+  // atualizações do React, que podem rodar duas vezes. Toda mudança passa por
+  // `changeState`, então este valor nunca fica atrás do estado.
+  const latestState = useRef(state);
+
+  const changeState = useCallback(
+    (change: (current: TournamentState) => TournamentState) => {
+      latestState.current = change(latestState.current);
+      setState(latestState.current);
+    },
+    [],
+  );
+
+  const runTransition = useCallback(
+    (step: (current: TournamentState, now: Date) => TransitionResult) => {
+      const result = step(latestState.current, new Date());
+
+      if (result.transitioned) alertPending.current = true;
+      changeState(() => result.state);
+    },
+    [changeState],
+  );
+
+  // Único lugar que toca o alerta. Toda transição gera um novo estado, e o valor
+  // é desligado antes de tocar, então rodar o efeito de novo não repete o som.
+  useEffect(() => {
+    if (!alertPending.current) return;
+
+    alertPending.current = false;
+    playSound("level_change");
+  }, [state]);
+
   // Salvar estado no localStorage sempre que mudar
   useEffect(() => {
     saveTournamentState(state);
@@ -108,106 +144,7 @@ export const useTournament = () => {
     let interval: NodeJS.Timeout;
 
     if (state.isRunning && state.startTime) {
-      interval = setInterval(() => {
-        setState((prevState) => {
-          if (!prevState.startTime) return prevState;
-
-          const currentLevelData =
-            prevState.config.blindStructure[prevState.currentLevel - 1];
-
-          if (!currentLevelData) return prevState;
-
-          const timeRemaining = calculateTimeRemaining(
-            prevState.startTime,
-            prevState.isBreak
-              ? prevState.config.breakDuration
-              : currentLevelData.duration,
-          );
-
-          // Se o tempo acabou
-          if (timeRemaining <= 0) {
-            if (prevState.isBreak) {
-              // Break terminou, voltar ao próximo nível
-              return {
-                ...prevState,
-                isBreak: false,
-                currentLevel: prevState.currentLevel + 1,
-                startTime: new Date(),
-                timeRemaining: calculateTimeRemaining(
-                  new Date(),
-                  prevState.config.blindStructure[prevState.currentLevel]
-                    ?.duration || prevState.config.levelDuration,
-                ),
-              };
-            } else {
-              // Nível terminou, verificar se precisa de break
-              // Verificar se o nível que acabou precisa de break
-              const needsBreak = shouldTakeBreak(
-                prevState.currentLevel,
-                prevState.config.breakInterval,
-              );
-
-              if (needsBreak) {
-                // Iniciar break
-                return {
-                  ...prevState,
-                  isBreak: true,
-                  startTime: new Date(),
-                  timeRemaining: calculateTimeRemaining(
-                    new Date(),
-                    prevState.config.breakDuration,
-                  ),
-                  history: [
-                    ...prevState.history,
-                    {
-                      level: prevState.currentLevel,
-                      smallBlind: currentLevelData.smallBlind,
-                      bigBlind: currentLevelData.bigBlind,
-                      startTime: prevState.startTime,
-                      endTime: new Date(),
-                      duration: currentLevelData.duration,
-                    },
-                  ],
-                };
-              } else {
-                // Ir para próximo nível
-                const nextLevel = getNextLevel(
-                  prevState.currentLevel,
-                  prevState.config.blindStructure.length,
-                );
-                const nextLevelData =
-                  prevState.config.blindStructure[nextLevel - 1];
-
-                return {
-                  ...prevState,
-                  currentLevel: nextLevel,
-                  startTime: new Date(),
-                  timeRemaining: calculateTimeRemaining(
-                    new Date(),
-                    nextLevelData?.duration || prevState.config.levelDuration,
-                  ),
-                  history: [
-                    ...prevState.history,
-                    {
-                      level: prevState.currentLevel,
-                      smallBlind: currentLevelData.smallBlind,
-                      bigBlind: currentLevelData.bigBlind,
-                      startTime: prevState.startTime,
-                      endTime: new Date(),
-                      duration: currentLevelData.duration,
-                    },
-                  ],
-                };
-              }
-            }
-          }
-
-          return {
-            ...prevState,
-            timeRemaining,
-          };
-        });
-      }, 1000);
+      interval = setInterval(() => runTransition(advanceByTime), 1000);
     }
 
     return () => {
@@ -215,30 +152,38 @@ export const useTournament = () => {
         clearInterval(interval);
       }
     };
-  }, [state.isRunning, state.startTime, state.isBreak, state.currentLevel]);
+  }, [
+    runTransition,
+    state.isRunning,
+    state.startTime,
+    state.isBreak,
+    state.currentLevel,
+  ]);
 
   // Iniciar torneio
-  const startTournament = useCallback((config: TournamentConfig) => {
-    const startTime = new Date();
-    const firstLevel = config.blindStructure[0];
+  const startTournament = useCallback(
+    (config: TournamentConfig) => {
+      const startTime = new Date();
 
-    setState({
-      config,
-      currentLevel: 1,
-      timeRemaining: calculateTimeRemaining(
+      changeState(() => ({
+        config,
+        currentLevel: 1,
+        timeRemaining: minutesToSeconds(levelDurationMinutes(config, 1)),
+        isRunning: true,
+        isBreak: false,
+        history: [],
         startTime,
-        firstLevel?.duration || config.levelDuration,
-      ),
-      isRunning: true,
-      isBreak: false,
-      history: [],
-      startTime,
-    });
-  }, []);
+      }));
+    },
+    [changeState],
+  );
 
   // Pausar/Retomar torneio
   const toggleTournament = useCallback(() => {
-    setState((prevState) => {
+    changeState((prevState) => {
+      // Em 00:00 o torneio segue rodando, o que mantém a tela ligada.
+      if (isTimeUp(prevState)) return prevState;
+
       if (prevState.isRunning) {
         // Pausando - salvar o tempo restante atual
         return {
@@ -253,13 +198,10 @@ export const useTournament = () => {
 
         if (!currentLevelData) return prevState;
 
-        const totalDuration = prevState.isBreak
-          ? prevState.config.breakDuration * 60
-          : currentLevelData.duration * 60;
-
-        const newStartTime = new Date(
-          Date.now() -
-            (totalDuration - (prevState.pausedTimeRemaining || 0)) * 1000,
+        const newStartTime = startTimeFor(
+          new Date(),
+          currentDurationMinutes(prevState),
+          prevState.pausedTimeRemaining || 0,
         );
 
         return {
@@ -270,99 +212,17 @@ export const useTournament = () => {
         };
       }
     });
-  }, []);
+  }, [changeState]);
 
   // Pular para próximo nível
-  const nextLevel = useCallback(() => {
-    setState((prevState) => {
-      if (prevState.isBreak) {
-        // Sair do break
-        const nextLevelNum = prevState.currentLevel + 1;
-        const nextLevelData = prevState.config.blindStructure[nextLevelNum - 1];
-
-        return {
-          ...prevState,
-          isBreak: false,
-          currentLevel: nextLevelNum,
-          startTime: new Date(),
-          timeRemaining: calculateTimeRemaining(
-            new Date(),
-            nextLevelData?.duration || prevState.config.levelDuration,
-          ),
-        };
-      } else {
-        // Pular nível atual
-        const currentLevelData =
-          prevState.config.blindStructure[prevState.currentLevel - 1];
-
-        // Verificar se precisa de break após pular o nível atual
-        const needsBreak = shouldTakeBreak(
-          prevState.currentLevel,
-          prevState.config.breakInterval,
-        );
-
-        if (needsBreak) {
-          // Iniciar break
-          return {
-            ...prevState,
-            isBreak: true,
-            startTime: new Date(),
-            timeRemaining: calculateTimeRemaining(
-              new Date(),
-              prevState.config.breakDuration,
-            ),
-            history: [
-              ...prevState.history,
-              {
-                level: prevState.currentLevel,
-                smallBlind: currentLevelData.smallBlind,
-                bigBlind: currentLevelData.bigBlind,
-                startTime: prevState.startTime || new Date(),
-                endTime: new Date(),
-                duration: currentLevelData.duration,
-              },
-            ],
-          };
-        } else {
-          // Ir para próximo nível
-          const nextLevelNum = getNextLevel(
-            prevState.currentLevel,
-            prevState.config.blindStructure.length,
-          );
-          const nextLevelData =
-            prevState.config.blindStructure[nextLevelNum - 1];
-
-          return {
-            ...prevState,
-            currentLevel: nextLevelNum,
-            startTime: new Date(),
-            timeRemaining: calculateTimeRemaining(
-              new Date(),
-              nextLevelData?.duration || prevState.config.levelDuration,
-            ),
-            history: [
-              ...prevState.history,
-              {
-                level: prevState.currentLevel,
-                smallBlind: currentLevelData.smallBlind,
-                bigBlind: currentLevelData.bigBlind,
-                startTime: prevState.startTime || new Date(),
-                endTime: new Date(),
-                duration: currentLevelData.duration,
-              },
-            ],
-          };
-        }
-      }
-    });
-  }, []);
+  const nextLevel = useCallback(() => runTransition(skipLevel), [runTransition]);
 
   // Reset torneio
   const resetTournament = useCallback(() => {
     // Limpar localStorage
     localStorage.removeItem("pomer-tournament-state");
 
-    setState((prevState) => ({
+    changeState((prevState) => ({
       ...prevState,
       config: {
         ...prevState.config,
@@ -375,7 +235,7 @@ export const useTournament = () => {
       history: [],
       startTime: undefined,
     }));
-  }, []);
+  }, [changeState]);
 
   // Obter informações do break
   const getBreakInfo = useCallback((): BreakInfo => {
