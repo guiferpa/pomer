@@ -612,6 +612,45 @@ describe("repairSavedState", () => {
     expect(repairSavedState(clean, NOW)).toBe(clean);
   });
 
+  it.each([
+    ["a different time", 299],
+    ["no time at all", undefined],
+  ])("makes a paused state with %s resume from the time on screen", (_, stale) => {
+    const repaired = repairSavedState(
+      paused({ timeRemaining: 1200, pausedTimeRemaining: stale }),
+      NOW,
+    );
+
+    expect(repaired.timeRemaining).toBe(1200);
+    expect(repaired.pausedTimeRemaining).toBe(1200);
+  });
+
+  it("keeps the correction of a stale pause idempotent", () => {
+    const once = repairSavedState(
+      paused({ timeRemaining: 1200, pausedTimeRemaining: 299 }),
+      NOW,
+    );
+
+    expect(repairSavedState(once, NOW)).toBe(once);
+  });
+
+  it("leaves a running state's missing paused time alone", () => {
+    const running = tournament();
+
+    expect(repairSavedState(running, NOW)).toBe(running);
+  });
+
+  it("leaves a screen without a tournament alone", () => {
+    const empty = tournament({
+      config: { ...tournament().config, blindStructure: [] },
+      isRunning: false,
+      timeRemaining: 0,
+      startTime: undefined,
+    });
+
+    expect(repairSavedState(empty, NOW)).toBe(empty);
+  });
+
   it("changes nothing when run again, even later", () => {
     const once = repairSavedState(leftover(), NOW);
 

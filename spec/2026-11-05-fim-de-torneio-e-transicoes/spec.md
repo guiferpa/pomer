@@ -66,6 +66,7 @@ Os testes passam a rodar em cada PR e bloqueiam a publicação quando falham.
 20. Ao carregar um estado salvo, um intervalo depois do último nível vira o último nível em `00:00`.
 21. Ao carregar um estado salvo, o histórico duplicado fica com uma entrada por nível.
 22. O formato salvo no dispositivo não muda.
+23. Ao carregar um estado salvo pausado, o tempo que vale ao retomar passa a ser o tempo mostrado na tela.
 
 ## Critérios de aceite
 

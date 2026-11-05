@@ -1265,6 +1265,25 @@ describe("refresh", () => {
     shows("04:29");
   });
 
+  it.each([
+    ["a level", { currentLevel: 2 }],
+    ["a break", { currentLevel: 2, isBreak: true }],
+  ])("%s paused by an old version resumes from the time on screen", (_, over) => {
+    seed({
+      config: structure(),
+      ...over,
+      isRunning: false,
+      timeRemaining: 1200,
+      pausedTimeRemaining: 299,
+    });
+    render(<App />);
+    shows("20:00");
+    expect(saved().pausedTimeRemaining).toBe(1200);
+    fireEvent.click(button("Retomar"));
+    tick(1);
+    shows("19:59");
+  });
+
   it("the last level comes back with its time and without skip", () => {
     seed({ config: structure(), currentLevel: 4, history: [earlier] });
     const view = render(<App />);

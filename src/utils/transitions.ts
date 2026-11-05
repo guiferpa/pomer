@@ -188,6 +188,15 @@ const repairHistory = ({
   return repaired.length === history.length ? history : repaired;
 };
 
+// Pausado, vale o tempo que o organizador vê na tela. Sem estrutura de blinds não
+// há torneio para retomar.
+const repairPausedTime = (state: TournamentState): TournamentState =>
+  state.isRunning ||
+  state.config.blindStructure.length === 0 ||
+  state.pausedTimeRemaining === state.timeRemaining
+    ? state
+    : { ...state, pausedTimeRemaining: state.timeRemaining };
+
 // Corrige, uma vez ao carregar, o que versões antigas deixaram no estado salvo.
 // Sem esses problemas, devolve o próprio estado recebido, e corrigir de novo um
 // estado já corrigido não muda nada.
@@ -216,5 +225,7 @@ export const repairSavedState = (
     };
   }
 
-  return history === state.history ? state : { ...state, history };
+  return repairPausedTime(
+    history === state.history ? state : { ...state, history },
+  );
 };
