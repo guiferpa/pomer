@@ -1,6 +1,7 @@
 // Each test asserts the CORRECT behaviour. `it.fails` marks a bug still open:
 // when the bug is fixed the test turns red until the marker is removed.
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { Fragment, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App";
@@ -171,7 +172,7 @@ describe("generateBlindLevels", () => {
 describe("App integration", () => {
   const nextBtn = () => screen.getByRole("button", { name: "Próximo Nível" });
 
-  it.fails("T7 manual skip plays the sound once", () => {
+  it("T7 manual skip plays the sound once", () => {
     seed({});
     render(<App />);
     fireEvent.click(nextBtn());
@@ -179,14 +180,14 @@ describe("App integration", () => {
     expect(plays).toBe(1);
   });
 
-  it.fails("T8 reloading mid-tournament does not ring", () => {
+  it("T8 reloading mid-tournament does not ring", () => {
     seed({ currentLevel: 3 });
     render(<App />);
     flushAudio();
     expect(plays).toBe(0);
   });
 
-  it.fails("T9 a break starting naturally rings", () => {
+  it("T9 a break starting naturally rings", () => {
     seed({ config: cfg(5, 1) });
     render(<App />);
     tick(61);
@@ -679,15 +680,217 @@ describe("tournaments saved by older versions", () => {
     expect(form()).toBeTruthy();
   });
 
-  // One level only: the unrelated ring on mounting past level 1 (T8) stays out.
-  it("a correction plays no alert, at load or on later ticks", () => {
-    seed({ config: cfg(1, 1), currentLevel: 1, isBreak: true, history: [finished(1), finished(1)] });
-    render(<App />);
+  it.each([
+    ["running", leftoverBreak],
+    ["paused", leftoverBreakPaused],
+  ])("a correction of a break, %s, plays no alert, at load or on later ticks", (_, seedIt) => {
+    seedIt();
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
     flushAudio();
     tick(5);
     flushAudio();
     expect(screen.getByText("Tempo esgotado")).toBeTruthy();
     expect(plays).toBe(0);
+  });
+
+  it("a correction of the history plays no alert", () => {
+    seed({ config: cfg(5, 10), currentLevel: 3, history: [finished(1, 9), finished(1, 7)] });
+    render(<App />);
+    flushAudio();
+    expect(savedLevels()).toEqual([1]);
+    expect(plays).toBe(0);
+  });
+});
+
+// main.tsx uses StrictMode, which runs updaters and effects twice in development.
+describe.each([
+  ["without StrictMode", Fragment],
+  ["under StrictMode", StrictMode],
+])("alert %s", (_mode, Wrapper) => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const open = () =>
+    render(
+      <Wrapper>
+        <App />
+      </Wrapper>,
+    );
+  const refresh = (view: ReturnType<typeof open>) => {
+    view.unmount();
+
+    return open();
+  };
+  const heard = () => {
+    flushAudio();
+
+    return plays;
+  };
+
+  it("rings once when a level starts naturally", () => {
+    seed({});
+    open();
+    tick(61);
+    expect(heard()).toBe(1);
+    expect(screen.getByText("Nível 2")).toBeTruthy();
+  });
+
+  it("rings once when a break starts naturally", () => {
+    seed({ config: cfg(5, 1) });
+    open();
+    tick(61);
+    expect(heard()).toBe(1);
+    expect(screen.getByText("Acontecendo")).toBeTruthy();
+  });
+
+  it("rings once when a level starts after a break", () => {
+    seed({ config: cfg(5, 1), isBreak: true });
+    open();
+    tick(61);
+    expect(heard()).toBe(1);
+    expect(screen.getByText("Nível 2")).toBeTruthy();
+  });
+
+  it("rings once per transition across a whole structure", () => {
+    seed({ config: cfg(3, 1) });
+    open();
+    tick(4 * 60 + 10); // level 1, break, level 2, break, then level 3 running
+    expect(screen.getByText("Nível 3")).toBeTruthy();
+    expect(heard()).toBe(4);
+  });
+
+  it("rings once when skipping with the clock running", () => {
+    seed({});
+    open();
+    fireEvent.click(button("Próximo Nível"));
+    expect(heard()).toBe(1);
+    tick(5);
+    expect(heard()).toBe(1);
+  });
+
+  it("rings once when skipping with the clock paused", () => {
+    seed({});
+    open();
+    fireEvent.click(button("Pausar"));
+    fireEvent.click(button("Próximo Nível"));
+    expect(heard()).toBe(1);
+    expect(screen.getByText("Nível 2")).toBeTruthy();
+    expect(button("Retomar")).toBeTruthy();
+  });
+
+  it("rings once when skipping into a break and once more when skipping out of it", () => {
+    seed({ config: cfg(5, 1) });
+    open();
+    fireEvent.click(button("Próximo Nível"));
+    expect(heard()).toBe(1);
+    expect(screen.getByText("Acontecendo")).toBeTruthy();
+    fireEvent.click(button("Próximo Nível"));
+    expect(heard()).toBe(2);
+    expect(screen.getByText("Nível 2")).toBeTruthy();
+  });
+
+  it("rings once on reaching 00:00 on the last level, and never again", () => {
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    open();
+    tick(61);
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(heard()).toBe(1);
+    tick(120);
+    expect(heard()).toBe(1);
+  });
+
+  it.each([
+    ["a level running", { currentLevel: 3 }],
+    ["a level paused", { currentLevel: 3, isRunning: false, pausedTimeRemaining: 30 }],
+    ["a break running", { isBreak: true }],
+    ["a break paused", { isBreak: true, isRunning: false, pausedTimeRemaining: 30 }],
+    ["the last level", { config: cfg(3, 10), currentLevel: 3 }],
+  ])("stays silent on a refresh during %s", (_situation, over) => {
+    seed(over);
+    const view = open();
+    tick(5);
+    refresh(view);
+    tick(5);
+    expect(heard()).toBe(0);
+  });
+
+  it("does not replay the alert on a refresh right after a transition", () => {
+    seed({});
+    const view = open();
+    tick(61);
+    expect(heard()).toBe(1);
+    refresh(view);
+    tick(5);
+    expect(heard()).toBe(1);
+  });
+
+  it("does not replay the alert on a refresh right after a skip", () => {
+    seed({});
+    const view = open();
+    fireEvent.click(button("Próximo Nível"));
+    refresh(view); // before the sound's delay ends and before any tick
+    tick(5);
+    expect(heard()).toBe(1);
+  });
+
+  it("does not replay the alert on a refresh at 00:00", () => {
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    const view = open();
+    tick(61);
+    expect(heard()).toBe(1);
+    refresh(view);
+    tick(5);
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(heard()).toBe(1);
+  });
+
+  it("stays silent when opening a tournament saved at 00:00", () => {
+    seed({
+      config: cfg(3, 10),
+      currentLevel: 3,
+      timeRemaining: 0,
+      startTime: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    });
+    open();
+    tick(5);
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(heard()).toBe(0);
+  });
+
+  it("stays silent when starting the tournament", () => {
+    const { container } = open();
+    fireEvent.submit(container.querySelector("form")!);
+    expect(button("Pausar")).toBeTruthy();
+    tick(5);
+    expect(heard()).toBe(0);
+  });
+
+  it("stays silent when pausing and resuming", () => {
+    seed({});
+    open();
+    tick(5);
+    fireEvent.click(button("Pausar"));
+    tick(5);
+    fireEvent.click(button("Retomar"));
+    tick(5);
+    expect(heard()).toBe(0);
+  });
+
+  it("stays silent when the skip button is disabled on the last level", () => {
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    open();
+    fireEvent.click(button("Próximo Nível"));
+    expect(heard()).toBe(0);
+  });
+
+  it("keeps the settings test sound button working", () => {
+    seed({});
+    open();
+    fireEvent.click(button("Configurações"));
+    fireEvent.click(button("Testar Som"));
+    expect(heard()).toBe(1);
   });
 });
 

@@ -2,7 +2,7 @@ import type { TournamentConfig } from "@/types/tournament";
 
 import { useEffect } from "react";
 
-import { useTournament, useLocalStorage, useAnalytics, useAudio } from "@/hooks";
+import { useTournament, useLocalStorage, useAnalytics } from "@/hooks";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
 
@@ -19,18 +19,10 @@ function App() {
   } = useTournament();
 
   const { trackEvent } = useAnalytics();
-  const { playSound } = useAudio();
 
   // Verificar se o torneio está configurado e válido
   const isConfigured = state.config.blindStructure.length > 0 && 
     state.currentLevel <= state.config.blindStructure.length;
-
-  // Detectar mudanças de nível para tocar som
-  useEffect(() => {
-    if (isConfigured && state.currentLevel > 1) {
-      playSound("level_change");
-    }
-  }, [state.currentLevel, isConfigured]);
 
   // Atualizar título da página
   useEffect(() => {
