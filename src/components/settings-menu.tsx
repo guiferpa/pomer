@@ -46,6 +46,7 @@ export const SettingsMenu: React.FC = () => {
               <div className="space-y-6">
                 {/* Tema */}
                 <Select
+                  variant="secondary"
                   className="flex flex-col gap-2"
                   value={resolvedTheme}
                   onChange={(key) => {
@@ -79,6 +80,7 @@ export const SettingsMenu: React.FC = () => {
 
                 {/* Idioma */}
                 <Select
+                  variant="secondary"
                   className="flex flex-col gap-2"
                   value={language}
                   onChange={(key) => {

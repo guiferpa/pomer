@@ -42,6 +42,5 @@ Toda ideia ou funcionalidade passa por estes passos, nesta ordem. Upgrades técn
 
 O projeto ainda diverge das regras acima. Remova cada item quando ele for resolvido.
 
-- Os componentes atuais usam HeroUI v2. A migração para a v3 usa `/heroui-migration`.
 - O PWA ainda não existe: faltam manifest e service worker.
 - Não há executor de testes configurado.

@@ -19,7 +19,7 @@ Os testes estão em `bugs.test.tsx`, nesta pasta, e descrevem o comportamento co
 | 2 | Pular para um intervalo com o timer pausado faz o tempo passar da duração do intervalo. | `useTournament.ts:262` | T2 |
 | 3 | O último nível, quando não cai em intervalo, reinicia para sempre e duplica o histórico. | `useTournament.ts:174`, `:328`, `history-list.tsx:33` | T3, T11 |
 | 4 | O último nível, quando cai em intervalo, leva ao formulário sem aviso ao fim do intervalo. | `useTournament.ts:134`, `:280`, `App.tsx:26` | T4, T10 |
-| 5 | Clicar de novo na estrutura já selecionada derruba o formulário. | `form-config.tsx:270`, `:105` | T18 |
+| 5 | ~~Clicar de novo na estrutura já selecionada derruba o formulário.~~ Resolvido na migração para o HeroUI v3 e conferido no navegador. | `form-config.tsx:270`, `:105` | T18 |
 | 6 | O Turbo promete níveis de 10 min, mas usa a duração do formulário. | `form-config.tsx:78` | T16 |
 
 Com o intervalo padrão de 3 níveis, nenhuma estrutura termina corretamente: Pequeno e Turbo caem no bug 4, Médio e Grande no bug 3.

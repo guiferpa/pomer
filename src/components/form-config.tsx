@@ -131,7 +131,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Logo color={selectedColor} size={32} />
             <h1 className="text-2xl font-bold">{t("appName")}</h1>
           </div>
-          <p className="text-center text-default-500">
+          <p className="text-center text-muted">
             {t("tournamentConfiguration")}
           </p>
         </Card.Header>
@@ -141,6 +141,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <TextField isRequired name="name">
               <Label>{t("tournamentNameLabel")}</Label>
               <Input
+                variant="secondary"
                 placeholder={t("tournamentNameLabel")}
                 value={config.name}
                 onChange={(e) =>
@@ -153,6 +154,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               <TextField isRequired name="levelDuration" type="number">
                 <Label>{t("levelDuration")}</Label>
                 <Input
+                  variant="secondary"
                   max="60"
                   min="1"
                   value={config.levelDuration.toString()}
@@ -168,6 +170,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               <TextField isRequired name="breakInterval" type="number">
                 <Label>{t("breakInterval")}</Label>
                 <Input
+                  variant="secondary"
                   max="10"
                   min="1"
                   value={config.breakInterval.toString()}
@@ -183,6 +186,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               <TextField isRequired name="breakDuration" type="number">
                 <Label>{t("breakDuration")}</Label>
                 <Input
+                  variant="secondary"
                   max="30"
                   min="1"
                   value={config.breakDuration.toString()}
@@ -209,7 +213,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                     ${
                       selectedColor === option.key
                         ? "border-2"
-                        : "border-default-200 hover:border-default-300"
+                        : "border-border hover:border-muted"
                     }
                   `}
                     style={{
@@ -227,18 +231,19 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                       className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                       style={{ backgroundColor: option.color }}
                     />
-                    <span className="text-xs font-medium text-default-600">
+                    <span className="text-xs font-medium text-muted">
                       {option.label}
                     </span>
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-default-400 mt-2">
+              <p className="text-xs text-muted mt-2">
                 {t("chooseColorDescription" as any)}
               </p>
             </div>
 
             <Select
+              variant="secondary"
               value={resolvedTheme}
               onChange={(key) => {
                 if (key) {
@@ -253,7 +258,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
-              <Description className="block text-xs text-default-400 mt-2">
+              <Description className="block text-xs text-muted mt-2">
                 {t("chooseThemeDescription" as any)}
               </Description>
               <Select.Popover>
@@ -275,6 +280,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <LanguageSelector />
 
             <Select
+              variant="secondary"
               placeholder={t("selectStructurePlaceholder" as any)}
               value={selectedStructure}
               onChange={(key) => {
@@ -314,7 +320,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 {config.blindStructure.slice(0, 3).map((level) => (
                   <div
                     key={level.level}
-                    className="flex justify-between items-center p-2 bg-default-100 rounded-lg"
+                    className="flex justify-between items-center p-2 bg-surface-secondary rounded-lg"
                   >
                     <span className="font-medium">
                       {t("level")} {level.level}
@@ -331,7 +337,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   </div>
                 ))}
                 {config.blindStructure.length > 3 && (
-                  <p className="text-center text-default-500 text-sm">
+                  <p className="text-center text-muted text-sm">
                     ... {t("andMore")} {config.blindStructure.length - 3}{" "}
                     {t("levels")}
                   </p>

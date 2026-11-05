@@ -16,6 +16,7 @@ export const LanguageSelector: React.FC = () => {
 
   return (
     <Select
+      variant="secondary"
       value={language}
       onChange={(key) => {
         if (key) {

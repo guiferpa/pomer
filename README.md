@@ -14,12 +14,10 @@ A modern React-based poker tournament manager with customizable blind structures
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 + TypeScript
-- **UI Framework**: HeroUI v2 (NextUI)
-- **Styling**: Tailwind CSS + Tailwind Variants
+- **Frontend**: React 19 + TypeScript
+- **UI Framework**: HeroUI v3
+- **Styling**: Tailwind CSS v4
 - **Build Tool**: Vite
-- **Animations**: Framer Motion
-- **Routing**: React Router DOM
 
 ## 🚀 Getting Started
 

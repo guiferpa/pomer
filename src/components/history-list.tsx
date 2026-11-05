@@ -54,7 +54,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                     {formatCurrency(level.smallBlind)}/
                     {formatCurrency(level.bigBlind)}
                   </span>
-                  <p className="text-xs text-default-500">
+                  <p className="text-xs text-muted">
                     {level.duration}min
                   </p>
                 </div>
@@ -62,7 +62,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
             ))}
 
           {history.length === 0 && (
-            <div className="text-center text-default-500 py-4">
+            <div className="text-center text-muted py-4">
               <p>{t("noLevelsPlayedYet" as any)}</p>
             </div>
           )}

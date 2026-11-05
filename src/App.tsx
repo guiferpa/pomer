@@ -68,8 +68,8 @@ function App() {
             <div className="text-center">
               <h1 className="text-2xl font-bold">{state.config.name}</h1>
               <div className="flex items-center justify-center gap-2">
-                <Logo className="text-default-500" size={16} />
-                <span className="text-sm text-default-500">Pomer</span>
+                <Logo className="text-muted" size={16} />
+                <span className="text-sm text-muted">Pomer</span>
               </div>
             </div>
 

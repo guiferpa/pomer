@@ -70,7 +70,7 @@ export const Countdown: React.FC<CountdownProps> = ({
     return (
       <Card className="w-full">
         <Card.Content className="text-center space-y-4">
-          <p className="text-default-500">{t("noActiveLevel" as any)}</p>
+          <p className="text-muted">{t("noActiveLevel" as any)}</p>
           <Button variant="tertiary" onPress={onReset}>
             {t("reset" as any)}
           </Button>
@@ -117,7 +117,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               <p className="text-2xl font-bold text-warning">
                 {t("break" as any)}
               </p>
-              <p className="text-default-500">
+              <p className="text-muted">
                 {t("next" as any)}: {t("level" as any)} {state.currentLevel + 1}
               </p>
             </div>
@@ -134,12 +134,12 @@ export const Countdown: React.FC<CountdownProps> = ({
                   >
                     {formatCurrency(currentLevel.smallBlind)}
                   </p>
-                  <p className="text-lg font-semibold text-default-500">
+                  <p className="text-lg font-semibold text-muted">
                     {t("smallBlind" as any)}
                   </p>
                 </div>
 
-                <div className="text-4xl font-bold text-default-400">-</div>
+                <div className="text-4xl font-bold text-muted">-</div>
 
                 <div className="text-center">
                   <p
@@ -151,7 +151,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                   >
                     {formatCurrency(currentLevel.bigBlind)}
                   </p>
-                  <p className="text-lg font-semibold text-default-500">
+                  <p className="text-lg font-semibold text-muted">
                     {t("bigBlind" as any)}
                   </p>
                 </div>
@@ -179,7 +179,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               </ProgressBar>
             ) : (
               <div className="max-w-xs mx-auto">
-                <div className="w-full bg-default-200 rounded-full h-2">
+                <div className="w-full bg-default rounded-full h-2">
                   <div
                     className="h-2 rounded-full transition-all duration-300"
                     style={{
@@ -304,14 +304,14 @@ export const Countdown: React.FC<CountdownProps> = ({
                   <p className="text-warning font-semibold">
                     {t("happening" as any)}
                   </p>
-                  <p className="text-sm text-default-400">
+                  <p className="text-sm text-muted">
                     {t("duration" as any)}: {state.config.breakDuration}{" "}
                     {t("minutes" as any)}
                   </p>
                 </div>
               ) : (
                 <div>
-                  <p className="text-default-500">
+                  <p className="text-muted">
                     {(() => {
                       const levelsUntilBreak =
                         state.config.breakInterval -
@@ -324,7 +324,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                             ` ${levelsUntilBreak} ${t("levelPlural" as any)}`;
                     })()}
                   </p>
-                  <p className="text-sm text-default-400">
+                  <p className="text-sm text-muted">
                     {t("duration" as any)}: {state.config.breakDuration}{" "}
                     {t("minutes" as any)}
                   </p>
