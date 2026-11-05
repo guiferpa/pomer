@@ -9,7 +9,7 @@ substitui:
 
 Bugs encontrados na revisão de `src/` e reproduzidos com testes no HeroUI v2 (React 18 e 19). A correção vem depois dos upgrades de React e HeroUI. Esta lista ainda precisa passar por `/grilling` e `/to-tickets`.
 
-Os testes estão em `bugs.test.tsx`, nesta pasta, e descrevem o comportamento correto: vermelho significa bug presente. T16 e T18 dependem da estrutura do Select v2 e precisam ser reescritos depois da migração. Os números de linha referem-se ao commit `e9b04d2`.
+Os testes estão em `src/bugs.test.tsx` e descrevem o comportamento correto: `it.fails` marca um bug ainda aberto. Os números de linha referem-se ao commit `e9b04d2`.
 
 ## Alta gravidade
 

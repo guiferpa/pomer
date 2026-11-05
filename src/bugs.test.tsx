@@ -1,5 +1,6 @@
-// Each test asserts the CORRECT behaviour: red = bug reproduced.
-import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
+// Each test asserts the CORRECT behaviour. `it.fails` marks a bug still open:
+// when the bug is fixed the test turns red until the marker is removed.
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App";
@@ -77,7 +78,7 @@ afterEach(() => {
 });
 
 describe("useTournament", () => {
-  it("T1 skipping a level while paused gives the new level its full time on resume", () => {
+  it.fails("T1 skipping a level while paused gives the new level its full time on resume", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(5, 10, 20)));
     tick(15 * 60);
@@ -89,7 +90,7 @@ describe("useTournament", () => {
     expect(result.current.state.timeRemaining).toBeGreaterThan(19 * 60);
   });
 
-  it("T2 skipping into a break while paused never shows more than the break length", () => {
+  it.fails("T2 skipping into a break while paused never shows more than the break length", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(5, 1, 20, 10)));
     tick(60);
@@ -101,7 +102,7 @@ describe("useTournament", () => {
     expect(result.current.state.timeRemaining).toBeLessThanOrEqual(10 * 60);
   });
 
-  it("T3 last level finishing does not repeat it forever", () => {
+  it.fails("T3 last level finishing does not repeat it forever", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(2, 10)));
     tick(60 * 4 + 5);
@@ -109,14 +110,14 @@ describe("useTournament", () => {
     expect(new Set(levels).size).toBe(levels.length);
   });
 
-  it("T4 currentLevel never goes past the structure when the last level ends in a break", () => {
+  it.fails("T4 currentLevel never goes past the structure when the last level ends in a break", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(3, 3)));
     tick(60 * 3 + 60 + 10);
     expect(result.current.state.currentLevel).toBeLessThanOrEqual(3);
   });
 
-  it("T5 reopening after 2.25 levels of absence catches up instead of skipping one level", () => {
+  it.fails("T5 reopening after 2.25 levels of absence catches up instead of skipping one level", () => {
     seed({
       config: cfg(5, 10, 20),
       startTime: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
@@ -129,7 +130,7 @@ describe("useTournament", () => {
 });
 
 describe("generateBlindLevels", () => {
-  it("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
+  it.fails("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
     const s = generateBlindLevels(100, 25, 20);
     const jumps = s.slice(1).map((l, i) => l.smallBlind / s[i].smallBlind);
     expect(Math.max(...jumps)).toBeLessThanOrEqual(2);
@@ -139,7 +140,7 @@ describe("generateBlindLevels", () => {
 describe("App integration", () => {
   const nextBtn = () => screen.getByRole("button", { name: "Próximo Nível" });
 
-  it("T7 manual skip plays the sound once", () => {
+  it.fails("T7 manual skip plays the sound once", () => {
     seed({});
     render(<App />);
     fireEvent.click(nextBtn());
@@ -147,14 +148,14 @@ describe("App integration", () => {
     expect(plays).toBe(1);
   });
 
-  it("T8 reloading mid-tournament does not ring", () => {
+  it.fails("T8 reloading mid-tournament does not ring", () => {
     seed({ currentLevel: 3 });
     render(<App />);
     flushAudio();
     expect(plays).toBe(0);
   });
 
-  it("T9 a break starting naturally rings", () => {
+  it.fails("T9 a break starting naturally rings", () => {
     seed({ config: cfg(5, 1) });
     render(<App />);
     tick(61);
@@ -162,14 +163,14 @@ describe("App integration", () => {
     expect(plays).toBeGreaterThanOrEqual(1);
   });
 
-  it("T10 ending the last level + break does not silently drop to the config form", () => {
+  it.fails("T10 ending the last level + break does not silently drop to the config form", () => {
     seed({ config: cfg(3, 3), currentLevel: 3, isBreak: true });
     render(<App />);
     tick(62);
     expect(screen.queryByRole("button", { name: "Iniciar Torneio" })).toBeNull();
   });
 
-  it("T11 no duplicate React keys in the history after the last level repeats", () => {
+  it.fails("T11 no duplicate React keys in the history after the last level repeats", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     seed({ config: cfg(2, 10), currentLevel: 2 });
     render(<App />);
@@ -178,7 +179,7 @@ describe("App integration", () => {
     expect(dup.length).toBe(0);
   });
 
-  it("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
+  it.fails("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
     const gtag = vi.fn();
     (window as any).gtag = gtag;
     seed({});
@@ -186,7 +187,7 @@ describe("App integration", () => {
     expect(gtag.mock.calls.filter((c) => c[0] === "config").length).toBe(0);
   });
 
-  it("T13 the wake lock is requested once across timer ticks", async () => {
+  it.fails("T13 the wake lock is requested once across timer ticks", async () => {
     const request = vi.fn(async () => {
       const s = new EventTarget() as any;
       s.release = vi.fn(async () => {});
@@ -203,7 +204,7 @@ describe("App integration", () => {
 });
 
 describe("useWakeLock", () => {
-  it("T14 pausing while the request is in flight does not leak the lock", async () => {
+  it.fails("T14 pausing while the request is in flight does not leak the lock", async () => {
     let resolve!: (s: any) => void;
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
@@ -233,7 +234,7 @@ describe("ConfigForm", () => {
       </I18nProvider>,
     );
 
-  it("T15 keeps the saved colour and structure when reopened", () => {
+  it.fails("T15 keeps the saved colour and structure when reopened", () => {
     const onStart = vi.fn();
     const { container } = renderForm(onStart, saved());
     fireEvent.submit(container.querySelector("form")!);
@@ -242,21 +243,34 @@ describe("ConfigForm", () => {
     expect(got.blindStructure.length).toBe(12);
   });
 
-  const structureTrigger = (c: HTMLElement) => {
-    const t = c.querySelectorAll('button[data-slot="trigger"]');
-    return t[t.length - 1] as HTMLElement;
+  const structureSelect = () => screen.getByRole("button", { name: /Estrutura de Blinds/ });
+
+  // Waits for the list to close, which proves the Select handled the choice.
+  const chooseStructure = async (name: RegExp) => {
+    fireEvent.click(structureSelect());
+    fireEvent.click(await screen.findByRole("option", { name }));
+    await waitFor(() => expect(screen.queryByRole("option")).toBeNull());
   };
 
-  it("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
+  const submitAfterChoosing = async (name: RegExp) => {
     vi.useRealTimers();
     const onStart = vi.fn();
     const { container } = renderForm(onStart);
-    fireEvent.click(structureTrigger(container));
-    fireEvent.click(await screen.findByRole("option", { name: /Turbo/ }));
-    await new Promise((r) => setTimeout(r, 50));
+    await chooseStructure(name);
     fireEvent.submit(container.querySelector("form")!);
-    const got = onStart.mock.calls[0][0];
-    expect(got.blindStructure.length).toBe(12); // proves Turbo was really selected
+
+    return onStart.mock.calls[0][0];
+  };
+
+  // C6 guards T16: `it.fails` accepts any failure, so a broken selector could
+  // otherwise pass for bug 6.
+  it("C6 choosing Turbo yields its 12 levels", async () => {
+    const got = await submitAfterChoosing(/Turbo/);
+    expect(got.blindStructure.length).toBe(12);
+  });
+
+  it.fails("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
+    const got = await submitAfterChoosing(/Turbo/);
     expect(got.blindStructure[0].duration).toBe(10);
   });
 
@@ -264,18 +278,14 @@ describe("ConfigForm", () => {
     vi.useRealTimers();
     const onStart = vi.fn();
     const { container } = renderForm(onStart);
-    const triggers = container.querySelectorAll('button[data-slot="trigger"]');
-    const trigger = triggers[triggers.length - 1] as HTMLElement;
-    expect(trigger.textContent).toContain("Médio");
-    fireEvent.click(trigger);
-    const option = await screen.findByRole("option", { name: /Médio/ });
-    fireEvent.click(option);
-    await new Promise((r) => setTimeout(r, 50));
+    expect(structureSelect().textContent).toContain("Médio");
+    await chooseStructure(/Médio/);
+    expect(structureSelect().textContent).toContain("Médio");
     fireEvent.submit(container.querySelector("form")!);
     expect(onStart.mock.calls[0][0].blindStructure.length).toBe(20);
   });
 
-  it("T17 a number field can be cleared while typing", () => {
+  it.fails("T17 a number field can be cleared while typing", () => {
     renderForm(vi.fn());
     const [duration] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
     fireEvent.change(duration, { target: { value: "" } });

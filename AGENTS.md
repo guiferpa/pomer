@@ -43,4 +43,3 @@ Toda ideia ou funcionalidade passa por estes passos, nesta ordem. Upgrades técn
 O projeto ainda diverge das regras acima. Remova cada item quando ele for resolvido.
 
 - O PWA ainda não existe: faltam manifest e service worker.
-- Não há executor de testes configurado.
