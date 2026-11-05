@@ -1,12 +1,5 @@
 import React from "react";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  Button,
-} from "@heroui/react";
+import { Button, Modal } from "@heroui/react";
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -16,13 +9,7 @@ interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  confirmColor?:
-    | "default"
-    | "primary"
-    | "secondary"
-    | "success"
-    | "warning"
-    | "danger";
+  confirmVariant?: "primary" | "secondary" | "danger";
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -33,7 +20,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   message,
   confirmText = "Confirmar",
   cancelText = "Cancelar",
-  confirmColor = "danger",
+  confirmVariant = "danger",
 }) => {
   const handleConfirm = () => {
     onConfirm();
@@ -41,25 +28,33 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   };
 
   return (
-    <Modal isOpen={isOpen} placement="center" onClose={onClose}>
-      <ModalContent>
-        {(onClose) => (
-          <>
-            <ModalHeader className="flex flex-col gap-1">{title}</ModalHeader>
-            <ModalBody>
+    <Modal>
+      <Modal.Backdrop
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <Modal.Container placement="center">
+          <Modal.Dialog>
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>{title}</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
               <p>{message}</p>
-            </ModalBody>
-            <ModalFooter>
-              <Button color="default" variant="light" onPress={onClose}>
+            </Modal.Body>
+            <Modal.Footer>
+              <Button variant="tertiary" onPress={onClose}>
                 {cancelText}
               </Button>
-              <Button color={confirmColor} onPress={handleConfirm}>
+              <Button variant={confirmVariant} onPress={handleConfirm}>
                 {confirmText}
               </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 };

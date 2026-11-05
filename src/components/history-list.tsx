@@ -1,7 +1,7 @@
 import type { LevelHistory } from "@/types/tournament";
 
 import React from "react";
-import { Card, CardBody, CardHeader, Chip } from "@heroui/react";
+import { Card, Chip } from "@heroui/react";
 
 import { formatCurrency } from "@/utils/helpers";
 import { useI18n } from "@/hooks";
@@ -19,10 +19,12 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <h3 className="text-lg font-semibold">{t("levelHistory" as any)}</h3>
-      </CardHeader>
-      <CardBody>
+      <Card.Header>
+        <Card.Title className="text-lg font-semibold">
+          {t("levelHistory" as any)}
+        </Card.Title>
+      </Card.Header>
+      <Card.Content>
         <div className="space-y-1 max-h-60 overflow-y-auto">
           {history
             .slice()
@@ -34,7 +36,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                 className="flex items-center justify-between p-2"
               >
                 <div className="flex items-center gap-3">
-                  <Chip color="success" size="sm" variant="flat">
+                  <Chip color="success" size="sm" variant="soft">
                     ✓
                   </Chip>
                   <span className="font-medium">
@@ -65,7 +67,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
             </div>
           )}
         </div>
-      </CardBody>
+      </Card.Content>
     </Card>
   );
 };

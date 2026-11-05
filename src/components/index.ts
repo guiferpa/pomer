@@ -1,7 +1,5 @@
 export * from "./form-config";
-export * from "./tournament-controls";
 export * from "./history-list";
-export * from "./theme-switch";
 export * from "./countdown";
 export * from "./main-layout";
 export * from "./confirm-modal";

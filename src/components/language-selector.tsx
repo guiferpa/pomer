@@ -1,7 +1,7 @@
 import type { Language } from "@/i18n/translations";
 
 import React from "react";
-import { Select, SelectItem } from "@heroui/react";
+import { Label, ListBox, Select } from "@heroui/react";
 
 import { useI18n } from "@/hooks";
 
@@ -15,24 +15,35 @@ export const LanguageSelector: React.FC = () => {
   ];
 
   return (
-    <div>
-      <label className="block text-sm font-medium mb-2">
+    <Select
+      value={language}
+      onChange={(key) => {
+        if (key) {
+          setLanguage(String(key) as Language);
+        }
+      }}
+    >
+      <Label className="block text-sm font-medium mb-2">
         {t("language" as any)}
-      </label>
-      <Select
-        selectedKeys={new Set([language])}
-        onSelectionChange={(keys) => {
-          const value = Array.from(keys)[0] as string;
-
-          if (value) {
-            setLanguage(value as Language);
-          }
-        }}
-      >
-        {languageOptions.map((option) => (
-          <SelectItem key={option.key}>{option.label}</SelectItem>
-        ))}
-      </Select>
-    </div>
+      </Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {languageOptions.map((option) => (
+            <ListBox.Item
+              key={option.key}
+              id={option.key}
+              textValue={option.label}
+            >
+              {option.label}
+              <ListBox.ItemIndicator />
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 };
