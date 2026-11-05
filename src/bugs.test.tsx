@@ -350,6 +350,17 @@ describe("last level screen", () => {
     expect(screen.queryByText("Tempo esgotado")).toBeNull();
   });
 
+  it("makes the reset stand out only at 00:00, when it is the only way to end", () => {
+    const reset = () => screen.getByRole("button", { name: "Reset" });
+
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    render(<App />);
+    expect(reset().className).toContain("button--danger-soft");
+    tick(61);
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(reset().className).toMatch(/button--danger(\s|$)/);
+  });
+
   it("keeps skip available and does not announce the last level before it", () => {
     seed({ config: cfg(3, 10), currentLevel: 2 });
     render(<App />);

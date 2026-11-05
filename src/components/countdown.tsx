@@ -255,12 +255,16 @@ export const Countdown: React.FC<CountdownProps> = ({
               isIconOnly
               aria-label={t("reset" as any)}
               size="sm"
-              variant="danger-soft"
+              // Em 00:00 o reset é o único jeito de encerrar e precisa se destacar
+              // dos botões desabilitados ao lado.
+              variant={timeUp ? "danger" : "danger-soft"}
               onPress={() => setShowResetModal(true)}
             >
               <ResetIcon
                 size={16}
-                style={{ color: darkenColor("#EF4444", 0.4) }}
+                style={
+                  timeUp ? undefined : { color: darkenColor("#EF4444", 0.4) }
+                }
               />
             </Button>
           </div>
