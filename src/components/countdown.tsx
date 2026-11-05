@@ -9,6 +9,11 @@ import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
 import { formatTime, formatCurrency } from "@/utils/helpers";
+import {
+  isLastLevel,
+  isTimeUp,
+  levelsUntilNextBreak,
+} from "@/utils/transitions";
 import { useI18n, useAnalytics, useAudio, useWakeLock } from "@/hooks";
 
 interface CountdownProps {
@@ -84,6 +89,9 @@ export const Countdown: React.FC<CountdownProps> = ({
     : currentLevel.duration * 60;
 
   const progress = ((totalTime - state.timeRemaining) / totalTime) * 100;
+  const lastLevel = isLastLevel(state);
+  const timeUp = isTimeUp(state);
+  const breakIn = levelsUntilNextBreak(state);
 
   return (
     <div className="space-y-6">
@@ -165,6 +173,12 @@ export const Countdown: React.FC<CountdownProps> = ({
               {formatTime(state.timeRemaining)}
             </p>
 
+            {timeUp && (
+              <Chip color="danger" size="lg" variant="soft">
+                {t("timeUp" as any)}
+              </Chip>
+            )}
+
             {state.isBreak ? (
               <ProgressBar
                 aria-label={t("break" as any)}
@@ -200,6 +214,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               isIconOnly
               aria-label={isRunning ? t("pause" as any) : t("resume" as any)}
               className={isRunning ? "bg-warning" : "bg-success"}
+              isDisabled={timeUp}
               size="sm"
               variant="primary"
               onPress={() => {
@@ -223,6 +238,7 @@ export const Countdown: React.FC<CountdownProps> = ({
             <Button
               isIconOnly
               aria-label={t("nextLevel" as any)}
+              isDisabled={lastLevel}
               size="sm"
               variant="primary"
               onPress={() => {
@@ -263,33 +279,41 @@ export const Countdown: React.FC<CountdownProps> = ({
               <h3 className="text-lg font-semibold mb-2">
                 {t("nextLevel" as any)}
               </h3>
-              <div className="flex justify-center items-center gap-2">
-                <Chip color="default" variant="soft">
-                  {t("level" as any)}{" "}
-                  {state.isBreak
-                    ? state.currentLevel + 1
-                    : nextLevel
-                      ? nextLevel.level
-                      : state.currentLevel + 1}
-                </Chip>
-                <span
-                  className="text-xl font-bold"
-                  style={{
-                    color: state.config.primaryColor,
-                    transition: "color 0.8s ease-in-out",
-                  }}
-                >
-                  {(() => {
-                    const nextLevelData = state.isBreak
-                      ? state.config.blindStructure[state.currentLevel]
-                      : nextLevel;
+              {lastLevel ? (
+                <div className="flex justify-center items-center gap-2">
+                  <Chip color="warning" variant="soft">
+                    {t("lastLevel" as any)}
+                  </Chip>
+                </div>
+              ) : (
+                <div className="flex justify-center items-center gap-2">
+                  <Chip color="default" variant="soft">
+                    {t("level" as any)}{" "}
+                    {state.isBreak
+                      ? state.currentLevel + 1
+                      : nextLevel
+                        ? nextLevel.level
+                        : state.currentLevel + 1}
+                  </Chip>
+                  <span
+                    className="text-xl font-bold"
+                    style={{
+                      color: state.config.primaryColor,
+                      transition: "color 0.8s ease-in-out",
+                    }}
+                  >
+                    {(() => {
+                      const nextLevelData = state.isBreak
+                        ? state.config.blindStructure[state.currentLevel]
+                        : nextLevel;
 
-                    return nextLevelData
-                      ? `${formatCurrency(nextLevelData.smallBlind)} / ${formatCurrency(nextLevelData.bigBlind)}`
-                      : "N/A";
-                  })()}
-                </span>
-              </div>
+                      return nextLevelData
+                        ? `${formatCurrency(nextLevelData.smallBlind)} / ${formatCurrency(nextLevelData.bigBlind)}`
+                        : "N/A";
+                    })()}
+                  </span>
+                </div>
+              )}
             </Card.Content>
           </Card>
 
@@ -309,20 +333,16 @@ export const Countdown: React.FC<CountdownProps> = ({
                     {t("minutes" as any)}
                   </p>
                 </div>
+              ) : breakIn === null ? (
+                <p className="text-muted">{t("noMoreBreaks" as any)}</p>
               ) : (
                 <div>
                   <p className="text-muted">
-                    {(() => {
-                      const levelsUntilBreak =
-                        state.config.breakInterval -
-                        ((state.currentLevel - 1) % state.config.breakInterval);
-
-                      return levelsUntilBreak === 1
-                        ? t("nextBreakIn" as any) +
-                            ` 1 ${t("levelSingular" as any)}`
-                        : t("nextBreakIn" as any) +
-                            ` ${levelsUntilBreak} ${t("levelPlural" as any)}`;
-                    })()}
+                    {breakIn === 1
+                      ? t("nextBreakIn" as any) +
+                        ` 1 ${t("levelSingular" as any)}`
+                      : t("nextBreakIn" as any) +
+                        ` ${breakIn} ${t("levelPlural" as any)}`}
                   </p>
                   <p className="text-sm text-muted">
                     {t("duration" as any)}: {state.config.breakDuration}{" "}

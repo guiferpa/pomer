@@ -7,7 +7,7 @@ import type {
 import { useState, useEffect, useCallback } from "react";
 
 import { minutesToSeconds } from "@/utils/helpers";
-import { advanceByTime, skipLevel } from "@/utils/transitions";
+import { advanceByTime, isTimeUp, skipLevel } from "@/utils/transitions";
 
 // Função para carregar estado do localStorage
 const loadTournamentState = (): TournamentState | null => {
@@ -140,6 +140,9 @@ export const useTournament = () => {
   // Pausar/Retomar torneio
   const toggleTournament = useCallback(() => {
     setState((prevState) => {
+      // Em 00:00 o torneio segue rodando, o que mantém a tela ligada.
+      if (isTimeUp(prevState)) return prevState;
+
       if (prevState.isRunning) {
         // Pausando - salvar o tempo restante atual
         return {

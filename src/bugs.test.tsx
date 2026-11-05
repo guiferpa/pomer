@@ -133,7 +133,7 @@ describe("useTournament", () => {
     expect(result.current.state.timeRemaining).toBe(1199);
   });
 
-  it.fails("T3 last level finishing does not repeat it forever", () => {
+  it("T3 last level finishing does not repeat it forever", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(2, 10)));
     tick(60 * 4 + 5);
@@ -141,7 +141,7 @@ describe("useTournament", () => {
     expect(new Set(levels).size).toBe(levels.length);
   });
 
-  it.fails("T4 currentLevel never goes past the structure when the last level ends in a break", () => {
+  it("T4 currentLevel never goes past the structure when the last level ends in a break", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(3, 3)));
     tick(60 * 3 + 60 + 10);
@@ -194,20 +194,22 @@ describe("App integration", () => {
     expect(plays).toBeGreaterThanOrEqual(1);
   });
 
-  it.fails("T10 ending the last level + break does not silently drop to the config form", () => {
+  it("T10 ending the last level + break does not silently drop to the config form", () => {
     seed({ config: cfg(3, 3), currentLevel: 3, isBreak: true });
     render(<App />);
     tick(62);
     expect(screen.queryByRole("button", { name: "Iniciar Torneio" })).toBeNull();
   });
 
-  it.fails("T11 no duplicate React keys in the history after the last level repeats", () => {
+  it("T11 the history has no duplicates and leaves out the last level", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
-    seed({ config: cfg(2, 10), currentLevel: 2 });
+    seed({ config: cfg(3, 10) });
     render(<App />);
-    tick(125);
+    tick(60 * 3 + 125);
     const dup = errors.mock.calls.filter((c) => String(c[0]).includes("same key"));
     expect(dup.length).toBe(0);
+    const saved = JSON.parse(localStorage.getItem(KEY)!);
+    expect(saved.history.map((h: { level: number }) => h.level)).toEqual([1, 2]);
   });
 
   it.fails("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
@@ -321,6 +323,204 @@ describe("ConfigForm", () => {
     const [duration] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
     fireEvent.change(duration, { target: { value: "" } });
     expect(duration.value).toBe("");
+  });
+});
+
+describe("last level screen", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const isDisabled = (name: string) => button(name).hasAttribute("disabled");
+  const form = () => screen.queryByRole("button", { name: "Iniciar Torneio" });
+  const onLastLevel = (over: Record<string, unknown> = {}) =>
+    seed({ config: cfg(3, 10), currentLevel: 3, ...over });
+
+  it("shows the last level from its first second, with skip disabled and pause available", () => {
+    onLastLevel();
+    render(<App />);
+    expect(screen.getByText("Último nível")).toBeTruthy();
+    expect(isDisabled("Próximo Nível")).toBe(true);
+    expect(isDisabled("Pausar")).toBe(false);
+    expect(screen.queryByText("Tempo esgotado")).toBeNull();
+  });
+
+  it("keeps skip available and does not announce the last level before it", () => {
+    seed({ config: cfg(3, 10), currentLevel: 2 });
+    render(<App />);
+    expect(screen.queryByText("Último nível")).toBeNull();
+    expect(isDisabled("Próximo Nível")).toBe(false);
+  });
+
+  it("does not announce the last level during a break before it", () => {
+    seed({ config: cfg(3, 2), currentLevel: 2, isBreak: true });
+    render(<App />);
+    expect(screen.queryByText("Último nível")).toBeNull();
+    expect(isDisabled("Próximo Nível")).toBe(false);
+  });
+
+  it("stops at 00:00 keeping the blinds and showing the time is up", () => {
+    onLastLevel();
+    render(<App />);
+    tick(61);
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(screen.getByText("Último nível")).toBeTruthy();
+    expect(screen.getByText("75")).toBeTruthy();
+    expect(screen.getByText("150")).toBeTruthy();
+    tick(120);
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(screen.getByText("75")).toBeTruthy();
+    expect(form()).toBeNull();
+  });
+
+  it("disables pause at 00:00 and keeps the reset, which goes back to the form", () => {
+    onLastLevel();
+    render(<App />);
+    tick(61);
+    expect(isDisabled("Pausar")).toBe(true);
+    expect(isDisabled("Próximo Nível")).toBe(true);
+    expect(isDisabled("Reset")).toBe(false);
+    fireEvent.click(button("Reset"));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    expect(form()).toBeTruthy();
+  });
+
+  it("keeps the screen on at 00:00", async () => {
+    const sentinels: any[] = [];
+    const request = vi.fn(async () => {
+      const sentinel: any = new EventTarget();
+      sentinel.release = vi.fn(async () => {});
+      sentinels.push(sentinel);
+      return sentinel;
+    });
+    Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
+    onLastLevel();
+    render(<App />);
+    for (let i = 0; i < 65; i++) {
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+    }
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(sentinels[sentinels.length - 1].release).not.toHaveBeenCalled();
+  });
+
+  it("restores the same 00:00 after a refresh, saved in the same format", () => {
+    onLastLevel({ history: [] });
+    const first = render(<App />);
+    tick(61);
+    const saved = localStorage.getItem(KEY)!;
+    first.unmount();
+    tick(600);
+    render(<App />);
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(isDisabled("Pausar")).toBe(true);
+    tick(5);
+    expect(localStorage.getItem(KEY)).toBe(saved);
+    expect(Object.keys(JSON.parse(saved)).sort()).toEqual([
+      "config",
+      "currentLevel",
+      "history",
+      "isBreak",
+      "isRunning",
+      "startTime",
+      "timeRemaining",
+    ]);
+  });
+
+  it("ignores a pause at 00:00 even without the button", () => {
+    seed({ config: cfg(1, 10) });
+    const { result } = renderHook(() => useTournament());
+    tick(61);
+    act(() => result.current.toggleTournament());
+    expect(result.current.state.isRunning).toBe(true);
+    expect(result.current.state.timeRemaining).toBe(0);
+  });
+
+  it.each([
+    ["pt", "Último nível", "Tempo esgotado", "Sem mais intervalos"],
+    ["es", "Último nivel", "Tiempo agotado", "No hay más descansos"],
+    ["en", "Last level", "Time's up", "No more breaks"],
+  ])("has the new texts in %s", (language, lastLevel, timeUp, noMoreBreaks) => {
+    localStorage.setItem("pomer-language", language);
+    onLastLevel();
+    render(<App />);
+    tick(61);
+    expect(screen.getByText(lastLevel)).toBeTruthy();
+    expect(screen.getByText(timeUp)).toBeTruthy();
+    expect(screen.getByText(noMoreBreaks)).toBeTruthy();
+  });
+
+  // Written by hand from the breaks each structure really has. "-" means no
+  // other break will happen; a number is the "next break in N levels" count.
+  const none = "-";
+  const breakCards: [number, number, (number | string)[]][] = [
+    [3, 1, [1, 1, none]],
+    [4, 2, [2, 1, none, none]], // second-to-last level used to promise 2 levels
+    [5, 2, [2, 1, 2, 1, none]],
+    [6, 3, [3, 2, 1, none, none, none]], // last level is a multiple of the interval
+    [6, 6, [none, none, none, none, none, none]], // interval equals the level count
+    [6, 12, [none, none, none, none, none, none]], // interval is a multiple of it
+    [12, 3, [3, 2, 1, 3, 2, 1, 3, 2, 1, none, none, none]],
+    [15, 3, [3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, none, none, none]],
+    [20, 3, [3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, none, none]],
+    [25, 3, [3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, 3, 2, 1, none]],
+    [12, 4, [4, 3, 2, 1, 4, 3, 2, 1, none, none, none, none]],
+    [12, 5, [5, 4, 3, 2, 1, 5, 4, 3, 2, 1, none, none]],
+  ];
+
+  it.each(breakCards)("break card with %i levels and a break every %i", (levels, interval, cards) => {
+    expect(cards.length).toBe(levels);
+    cards.forEach((card, i) => {
+      seed({ config: cfg(levels, interval), currentLevel: i + 1 });
+      const view = render(<App />);
+      if (card === none) {
+        expect(screen.getByText("Sem mais intervalos")).toBeTruthy();
+        expect(screen.queryByText(/Duração/)).toBeNull();
+        expect(screen.queryByText(/Próximo break/)).toBeNull();
+      } else {
+        const unit = card === 1 ? "nível" : "níveis";
+        expect(screen.getByText(`Próximo break em ${card} ${unit}`)).toBeTruthy();
+        expect(screen.queryByText("Sem mais intervalos")).toBeNull();
+      }
+      view.unmount();
+    });
+  });
+
+  it("break card says a break is happening during a break", () => {
+    seed({ config: cfg(4, 2), currentLevel: 2, isBreak: true });
+    render(<App />);
+    expect(screen.getByText("Acontecendo")).toBeTruthy();
+    expect(screen.queryByText("Sem mais intervalos")).toBeNull();
+  });
+
+  // Skipping through every structure: the form never comes back, and the
+  // button stops working exactly on the last level.
+  const sweep = [12, 15, 20, 25].flatMap((levels) =>
+    [1, 2, 3, 4, 5, 6, 7, 10, levels, levels * 2].map((interval) => [levels, interval] as const),
+  );
+
+  it.each(sweep)("skipping through %i levels with a break every %i never reaches the form", (levels, interval) => {
+    seed({ config: cfg(levels, interval) });
+    render(<App />);
+    for (let i = 0; i < levels * 2 && !isDisabled("Próximo Nível"); i++) {
+      fireEvent.click(button("Próximo Nível"));
+      expect(form()).toBeNull();
+    }
+    const saved = JSON.parse(localStorage.getItem(KEY)!);
+    expect(saved.currentLevel).toBe(levels);
+    expect(saved.isBreak).toBe(false);
+    expect(saved.history.length).toBe(levels - 1);
+    expect(screen.getByText("Último nível")).toBeTruthy();
+  });
+
+  it.each([
+    [1, 1], [2, 2], [3, 3], [3, 1], [5, 2], [6, 3], [6, 12],
+  ])("letting %i levels with a break every %i run out never reaches the form", (levels, interval) => {
+    seed({ config: cfg(levels, interval) });
+    render(<App />);
+    for (let second = 0; second < (levels * 2 + 1) * 60; second++) {
+      tick(1);
+      expect(form()).toBeNull();
+    }
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
   });
 });
 

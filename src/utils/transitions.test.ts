@@ -2,7 +2,14 @@ import type { TournamentState } from "@/types/tournament";
 
 import { describe, expect, it } from "vitest";
 
-import { advanceByTime, skipLevel } from "@/utils/transitions";
+import { calculateTimeRemaining } from "@/utils/helpers";
+import {
+  advanceByTime,
+  isLastLevel,
+  isTimeUp,
+  levelsUntilNextBreak,
+  skipLevel,
+} from "@/utils/transitions";
 
 const START = new Date("2026-01-01T12:00:00Z");
 const NOW = new Date("2026-01-01T12:07:00Z"); // 420 seconds after START
@@ -231,5 +238,204 @@ describe("skipLevel and the history", () => {
     );
 
     expect(state.history).toEqual([earlier]);
+  });
+});
+
+describe("the last level", () => {
+  const onLastLevel = (over: Partial<TournamentState> = {}) =>
+    tournament({ currentLevel: 4, timeRemaining: 1, ...over });
+  const END_OF_LAST = secondsAfterStart(1800);
+
+  it("stops at 00:00 keeping the level, reporting it as a transition exactly once", () => {
+    const { state, transitioned } = advanceByTime(onLastLevel(), END_OF_LAST);
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(4);
+    expect(state.isBreak).toBe(false);
+    expect(state.isRunning).toBe(true);
+    expect(state.timeRemaining).toBe(0);
+    expect(state.startTime).toEqual(START);
+    expect(isTimeUp(state)).toBe(true);
+  });
+
+  it("stays put on every later tick, without a transition or a new state", () => {
+    const expired = advanceByTime(onLastLevel(), END_OF_LAST).state;
+    const later = advanceByTime(expired, secondsAfterStart(99 * 3600));
+
+    expect(later.transitioned).toBe(false);
+    expect(later.state).toBe(expired);
+  });
+
+  it("is not time up while there is time left, or on any other level at zero", () => {
+    expect(isTimeUp(onLastLevel())).toBe(false);
+    expect(isTimeUp(tournament({ currentLevel: 3, timeRemaining: 0 }))).toBe(
+      false,
+    );
+    expect(
+      isTimeUp(onLastLevel({ isBreak: true, timeRemaining: 0 })),
+    ).toBe(false);
+  });
+
+  it("is told apart from the other levels", () => {
+    expect(isLastLevel(onLastLevel())).toBe(true);
+    expect(isLastLevel(tournament({ currentLevel: 3 }))).toBe(false);
+    expect(isLastLevel(onLastLevel({ isBreak: true }))).toBe(false);
+  });
+
+  it("has no break after it even when its number is a multiple of the interval", () => {
+    // Level 4 with breakInterval 2.
+    const { state } = advanceByTime(onLastLevel(), END_OF_LAST);
+
+    expect(state.isBreak).toBe(false);
+  });
+
+  it("does not enter the history when its time runs out", () => {
+    const { state } = advanceByTime(onLastLevel(), END_OF_LAST);
+
+    expect(state.history).toEqual([]);
+  });
+
+  it.each([
+    ["running", () => onLastLevel()],
+    ["paused", () => paused({ currentLevel: 4 })],
+    ["at 00:00", () => advanceByTime(onLastLevel(), END_OF_LAST).state],
+  ])("ignores a skip while %s", (_, make) => {
+    const before = make();
+    const { state, transitioned } = skipLevel(before, NOW);
+
+    expect(transitioned).toBe(false);
+    expect(state).toBe(before);
+  });
+});
+
+describe("a break left over after the last level", () => {
+  const phantom = (over: Partial<TournamentState> = {}) =>
+    tournament({ currentLevel: 4, isBreak: true, ...over });
+
+  it("ends on the last level at 00:00 once, and stays there across a reload", () => {
+    const end = secondsAfterStart(300);
+    const { state, transitioned } = advanceByTime(phantom(), end);
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(4);
+    expect(state.isBreak).toBe(false);
+    expect(state.timeRemaining).toBe(0);
+    expect(state.history).toEqual([]);
+    // A reload recomputes the time from startTime, which must still give zero.
+    expect(calculateTimeRemaining(state.startTime!, 30, end)).toBe(0);
+
+    const later = advanceByTime(state, secondsAfterStart(301));
+
+    expect(later.transitioned).toBe(false);
+    expect(later.state).toBe(state);
+  });
+
+  it("skipped while paused, lands on 00:00 running, since pausing is not available there", () => {
+    const { state } = skipLevel(phantom({ isRunning: false }), NOW);
+
+    expect(isTimeUp(state)).toBe(true);
+    expect(state.isRunning).toBe(true);
+    expect(state.pausedTimeRemaining).toBeUndefined();
+  });
+});
+
+// Real walks through the structure, so what the break card promises is compared
+// against the breaks that actually happen.
+describe("across structures and break intervals", () => {
+  const structureSizes = [1, 2, 3, 4, 5, 6, 12, 15, 20, 25];
+  const intervals = [1, 2, 3, 4, 5, 6, 7, 10, 12, 15, 20, 25, 30, 40, 50];
+
+  const started = (levels: number, breakInterval: number): TournamentState => {
+    const base = tournament();
+
+    return tournament({
+      config: {
+        ...base.config,
+        breakInterval,
+        blindStructure: Array.from({ length: levels }, (_, i) => ({
+          level: i + 1,
+          smallBlind: 25 * (i + 1),
+          bigBlind: 50 * (i + 1),
+          duration: 10,
+        })),
+      },
+    });
+  };
+
+  // Lets each level or break run out, recording every state on the way.
+  const walk = (first: TournamentState) => {
+    const states = [first];
+    let current = first;
+
+    while (!isTimeUp(current)) {
+      const seconds = current.isBreak ? 300 : 600;
+      const end = new Date(current.startTime!.getTime() + seconds * 1000);
+
+      current = advanceByTime(current, end).state;
+      states.push(current);
+
+      if (states.length > 200) throw new Error("the tournament never ended");
+    }
+
+    return states;
+  };
+
+  const cases = structureSizes.flatMap((levels) =>
+    intervals.map((interval) => [levels, interval] as const),
+  );
+
+  it.each(cases)(
+    "%i levels, a break every %i: ends on the last level, one history entry per finished level",
+    (levels, interval) => {
+      const states = walk(started(levels, interval));
+      const end = states[states.length - 1];
+
+      expect(states.every((s) => s.currentLevel <= levels)).toBe(true);
+      expect(
+        states.filter((s) => s.isBreak && s.currentLevel === levels),
+      ).toEqual([]);
+      expect(end.currentLevel).toBe(levels);
+      expect(end.timeRemaining).toBe(0);
+      expect(end.history.map((h) => h.level)).toEqual(
+        Array.from({ length: levels - 1 }, (_, i) => i + 1),
+      );
+    },
+  );
+
+  it.each(cases)(
+    "%i levels, a break every %i: the card matches the breaks that really happen",
+    (levels, interval) => {
+      const states = walk(started(levels, interval));
+
+      states.forEach((state, i) => {
+        if (state.isBreak) return;
+
+        const nextBreak = states.slice(i + 1).find((s) => s.isBreak);
+        const expected = nextBreak
+          ? nextBreak.currentLevel - state.currentLevel + 1
+          : null;
+
+        expect(levelsUntilNextBreak(state)).toBe(expected);
+      });
+    },
+  );
+
+  it("answers the worked examples", () => {
+    const at = (levels: number, interval: number, currentLevel: number) =>
+      levelsUntilNextBreak({ ...started(levels, interval), currentLevel });
+
+    // Second-to-last level: the card used to promise a break in 2 levels.
+    expect(at(4, 2, 3)).toBeNull();
+    expect(at(5, 2, 3)).toBe(2);
+    expect(at(5, 2, 4)).toBe(1);
+    expect(at(5, 2, 5)).toBeNull();
+    // The interval equals the level count, or is a multiple of it.
+    expect(at(6, 6, 1)).toBeNull();
+    expect(at(6, 12, 1)).toBeNull();
+    // The level count is a multiple of the interval.
+    expect(at(6, 3, 1)).toBe(3);
+    expect(at(6, 3, 3)).toBe(1);
+    expect(at(6, 3, 4)).toBeNull();
+    expect(at(6, 3, 6)).toBeNull();
   });
 });
