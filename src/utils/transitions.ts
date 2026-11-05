@@ -1,8 +1,7 @@
-import type { TournamentState } from "@/types/tournament";
+import type { TournamentConfig, TournamentState } from "@/types/tournament";
 
 import {
   calculateTimeRemaining,
-  getNextLevel,
   minutesToSeconds,
   shouldTakeBreak,
 } from "@/utils/helpers";
@@ -16,6 +15,34 @@ export interface TransitionResult {
   // decide o efeito colateral (o alerta) a partir deste campo, fora delas.
   transitioned: boolean;
 }
+
+// Duração de um nível, em minutos, com o padrão da configuração como reserva.
+export const levelDurationMinutes = (
+  config: TournamentConfig,
+  level: number,
+): number => config.blindStructure[level - 1]?.duration || config.levelDuration;
+
+// Duração do nível ou intervalo atual, em minutos. Vale para um nível que existe
+// na estrutura.
+export const currentDurationMinutes = ({
+  config,
+  currentLevel,
+  isBreak,
+}: TournamentState): number =>
+  isBreak
+    ? config.breakDuration
+    : config.blindStructure[currentLevel - 1].duration;
+
+// O início que faz a contagem marcar `remainingSeconds` em `now`.
+export const startTimeFor = (
+  now: Date,
+  durationMinutes: number,
+  remainingSeconds: number,
+): Date =>
+  new Date(
+    now.getTime() -
+      (minutesToSeconds(durationMinutes) - remainingSeconds) * 1000,
+  );
 
 // O último nível vale até o reset: não há intervalo nem nível depois dele.
 export const isLastLevel = ({
@@ -67,12 +94,13 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
     };
   };
 
-  if (isBreak) {
-    const level = currentLevel + 1;
+  // Fora do último nível, sempre existe um nível depois do atual.
+  const level = currentLevel + 1;
 
+  if (isBreak) {
     return enter(
       { currentLevel: level, isBreak: false, history: state.history },
-      config.blindStructure[level - 1]?.duration || config.levelDuration,
+      levelDurationMinutes(config, level),
     );
   }
 
@@ -95,11 +123,9 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
     );
   }
 
-  const level = getNextLevel(currentLevel, config.blindStructure.length);
-
   return enter(
     { currentLevel: level, isBreak: false, history },
-    config.blindStructure[level - 1]?.duration || config.levelDuration,
+    levelDurationMinutes(config, level),
   );
 };
 
@@ -118,10 +144,7 @@ export const advanceByTime = (
     return { state, transitioned: false };
   }
 
-  const durationMinutes = state.isBreak
-    ? state.config.breakDuration
-    : levelData.duration;
-
+  const durationMinutes = currentDurationMinutes(state);
   const timeRemaining = calculateTimeRemaining(
     state.startTime,
     durationMinutes,
@@ -135,10 +158,7 @@ export const advanceByTime = (
     return {
       state: {
         ...state,
-        startTime: new Date(
-          now.getTime() -
-            (minutesToSeconds(durationMinutes) - state.timeRemaining) * 1000,
-        ),
+        startTime: startTimeFor(now, durationMinutes, state.timeRemaining),
       },
       transitioned: false,
     };
@@ -217,10 +237,10 @@ export const repairSavedState = (
       timeRemaining: 0,
       pausedTimeRemaining: undefined,
       // O refresh recalcula o tempo a partir daqui e precisa chegar em zero.
-      startTime: new Date(
-        now.getTime() -
-          minutesToSeconds(blindStructure[state.currentLevel - 1].duration) *
-            1000,
+      startTime: startTimeFor(
+        now,
+        blindStructure[state.currentLevel - 1].duration,
+        0,
       ),
     };
   }

@@ -11,9 +11,12 @@ import { useAudio } from "./useAudio";
 import { minutesToSeconds } from "@/utils/helpers";
 import {
   advanceByTime,
+  currentDurationMinutes,
   isTimeUp,
+  levelDurationMinutes,
   repairSavedState,
   skipLevel,
+  startTimeFor,
   type TransitionResult,
 } from "@/utils/transitions";
 
@@ -101,25 +104,25 @@ export const useTournament = () => {
 
   // Último estado, para calcular cada mudança uma única vez e fora das
   // atualizações do React, que podem rodar duas vezes. Toda mudança passa por
-  // `update`, então este valor nunca fica atrás do estado.
-  const latest = useRef(state);
+  // `changeState`, então este valor nunca fica atrás do estado.
+  const latestState = useRef(state);
 
-  const update = useCallback(
+  const changeState = useCallback(
     (change: (current: TournamentState) => TournamentState) => {
-      latest.current = change(latest.current);
-      setState(latest.current);
+      latestState.current = change(latestState.current);
+      setState(latestState.current);
     },
     [],
   );
 
-  const advance = useCallback(
+  const runTransition = useCallback(
     (step: (current: TournamentState, now: Date) => TransitionResult) => {
-      const result = step(latest.current, new Date());
+      const result = step(latestState.current, new Date());
 
       if (result.transitioned) alertPending.current = true;
-      update(() => result.state);
+      changeState(() => result.state);
     },
-    [update],
+    [changeState],
   );
 
   // Único lugar que toca o alerta. Toda transição gera um novo estado, e o valor
@@ -141,7 +144,7 @@ export const useTournament = () => {
     let interval: NodeJS.Timeout;
 
     if (state.isRunning && state.startTime) {
-      interval = setInterval(() => advance(advanceByTime), 1000);
+      interval = setInterval(() => runTransition(advanceByTime), 1000);
     }
 
     return () => {
@@ -150,7 +153,7 @@ export const useTournament = () => {
       }
     };
   }, [
-    advance,
+    runTransition,
     state.isRunning,
     state.startTime,
     state.isBreak,
@@ -161,26 +164,23 @@ export const useTournament = () => {
   const startTournament = useCallback(
     (config: TournamentConfig) => {
       const startTime = new Date();
-      const firstLevel = config.blindStructure[0];
 
-      update(() => ({
+      changeState(() => ({
         config,
         currentLevel: 1,
-        timeRemaining: minutesToSeconds(
-          firstLevel?.duration || config.levelDuration,
-        ),
+        timeRemaining: minutesToSeconds(levelDurationMinutes(config, 1)),
         isRunning: true,
         isBreak: false,
         history: [],
         startTime,
       }));
     },
-    [update],
+    [changeState],
   );
 
   // Pausar/Retomar torneio
   const toggleTournament = useCallback(() => {
-    update((prevState) => {
+    changeState((prevState) => {
       // Em 00:00 o torneio segue rodando, o que mantém a tela ligada.
       if (isTimeUp(prevState)) return prevState;
 
@@ -198,13 +198,10 @@ export const useTournament = () => {
 
         if (!currentLevelData) return prevState;
 
-        const totalDuration = prevState.isBreak
-          ? prevState.config.breakDuration * 60
-          : currentLevelData.duration * 60;
-
-        const newStartTime = new Date(
-          Date.now() -
-            (totalDuration - (prevState.pausedTimeRemaining || 0)) * 1000,
+        const newStartTime = startTimeFor(
+          new Date(),
+          currentDurationMinutes(prevState),
+          prevState.pausedTimeRemaining || 0,
         );
 
         return {
@@ -215,17 +212,17 @@ export const useTournament = () => {
         };
       }
     });
-  }, [update]);
+  }, [changeState]);
 
   // Pular para próximo nível
-  const nextLevel = useCallback(() => advance(skipLevel), [advance]);
+  const nextLevel = useCallback(() => runTransition(skipLevel), [runTransition]);
 
   // Reset torneio
   const resetTournament = useCallback(() => {
     // Limpar localStorage
     localStorage.removeItem("pomer-tournament-state");
 
-    update((prevState) => ({
+    changeState((prevState) => ({
       ...prevState,
       config: {
         ...prevState.config,
@@ -238,7 +235,7 @@ export const useTournament = () => {
       history: [],
       startTime: undefined,
     }));
-  }, [update]);
+  }, [changeState]);
 
   // Obter informações do break
   const getBreakInfo = useCallback((): BreakInfo => {

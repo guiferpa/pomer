@@ -8,8 +8,9 @@ import { HistoryList } from "./history-list";
 import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
-import { formatTime, formatCurrency } from "@/utils/helpers";
+import { formatTime, formatCurrency, minutesToSeconds } from "@/utils/helpers";
 import {
+  currentDurationMinutes,
   isLastLevel,
   isTimeUp,
   levelsUntilNextBreak,
@@ -83,9 +84,7 @@ export const Countdown: React.FC<CountdownProps> = ({
     );
   }
 
-  const totalTime = state.isBreak
-    ? state.config.breakDuration * 60
-    : currentLevel.duration * 60;
+  const totalTime = minutesToSeconds(currentDurationMinutes(state));
 
   const progress = ((totalTime - state.timeRemaining) / totalTime) * 100;
   const lastLevel = isLastLevel(state);
@@ -281,41 +280,29 @@ export const Countdown: React.FC<CountdownProps> = ({
               <h3 className="text-lg font-semibold mb-2">
                 {t("nextLevel" as any)}
               </h3>
-              {lastLevel ? (
-                <div className="flex justify-center items-center gap-2">
+              <div className="flex justify-center items-center gap-2">
+                {lastLevel ? (
                   <Chip color="warning" variant="soft">
                     {t("lastLevel" as any)}
                   </Chip>
-                </div>
-              ) : (
-                <div className="flex justify-center items-center gap-2">
-                  <Chip color="default" variant="soft">
-                    {t("level" as any)}{" "}
-                    {state.isBreak
-                      ? state.currentLevel + 1
-                      : nextLevel
-                        ? nextLevel.level
-                        : state.currentLevel + 1}
-                  </Chip>
-                  <span
-                    className="text-xl font-bold"
-                    style={{
-                      color: state.config.primaryColor,
-                      transition: "color 0.8s ease-in-out",
-                    }}
-                  >
-                    {(() => {
-                      const nextLevelData = state.isBreak
-                        ? state.config.blindStructure[state.currentLevel]
-                        : nextLevel;
-
-                      return nextLevelData
-                        ? `${formatCurrency(nextLevelData.smallBlind)} / ${formatCurrency(nextLevelData.bigBlind)}`
-                        : "N/A";
-                    })()}
-                  </span>
-                </div>
-              )}
+                ) : (
+                  <>
+                    <Chip color="default" variant="soft">
+                      {t("level" as any)} {nextLevel.level}
+                    </Chip>
+                    <span
+                      className="text-xl font-bold"
+                      style={{
+                        color: state.config.primaryColor,
+                        transition: "color 0.8s ease-in-out",
+                      }}
+                    >
+                      {formatCurrency(nextLevel.smallBlind)} /{" "}
+                      {formatCurrency(nextLevel.bigBlind)}
+                    </span>
+                  </>
+                )}
+              </div>
             </Card.Content>
           </Card>
 

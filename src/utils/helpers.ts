@@ -36,14 +36,6 @@ export const shouldTakeBreak = (
   return currentLevel > 0 && currentLevel % breakInterval === 0;
 };
 
-// Calcula o próximo nível
-export const getNextLevel = (
-  currentLevel: number,
-  totalLevels: number,
-): number => {
-  return Math.min(currentLevel + 1, totalLevels);
-};
-
 // Formata valor monetário (para blinds)
 export const formatCurrency = (value: number): string => {
   if (value >= 1000) {
