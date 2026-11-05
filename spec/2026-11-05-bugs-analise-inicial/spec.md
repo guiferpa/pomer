@@ -35,7 +35,7 @@ Com o intervalo padrão de 3 níveis, nenhuma estrutura termina corretamente: Pe
 | 11 | A cor e a estrutura salvas se perdem ao voltar ao formulário. | `form-config.tsx:68-69` | T15 |
 | 12 | O relógio não compensa o tempo ausente: avança só um nível e reinicia o tempo. | `useTournament.ts:135` | T5 |
 
-O teste T5 assume que o torneio segue a hora real durante a ausência. Essa decisão ainda está em aberto.
+O teste T5 assume que o torneio segue a hora real durante a ausência. Essa decisão foi confirmada em `spec/2026-11-05-fim-de-torneio-e-transicoes/spec.md`, que trata dos bugs 1 a 4, 8 a 10 e 12.
 
 ## Baixa gravidade
 
