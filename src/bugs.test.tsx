@@ -149,7 +149,7 @@ describe("useTournament", () => {
     expect(result.current.state.currentLevel).toBeLessThanOrEqual(3);
   });
 
-  it.fails("T5 reopening after 2.25 levels of absence catches up instead of skipping one level", () => {
+  it("T5 reopening after 2.25 levels of absence catches up instead of skipping one level", () => {
     seed({
       config: cfg(5, 10, 20),
       startTime: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
@@ -710,6 +710,326 @@ describe.each([
     fireEvent.click(button("Configurações"));
     fireEvent.click(button("Testar Som"));
     expect(heard()).toBe(1);
+  });
+});
+
+describe("back from an absence", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const minutesAgo = (minutes: number) =>
+    new Date(Date.now() - minutes * 60 * 1000).toISOString();
+  const levels = () =>
+    JSON.parse(localStorage.getItem(KEY)!).history.map((h: { level: number }) => h.level);
+  // Ten-minute levels and five-minute breaks, a break every 2: level 1 ends at
+  // 10min, level 2 at 20min, the break at 25min, level 3 at 35min, and level 4,
+  // the last one, at 45min.
+  const structure = () => cfg(4, 2, 10, 5);
+  // The device slept: the time moved on, but no timer fired until now.
+  const sleep = (minutes: number) => vi.setSystemTime(Date.now() + minutes * 60 * 1000);
+
+  describe("opening the app", () => {
+    it("lands on the right level and remaining time, with the history filled in", () => {
+      seed({ config: structure(), startTime: minutesAgo(30) });
+      render(<App />);
+      expect(screen.getByText("Nível 3")).toBeTruthy();
+      expect(screen.getByText("05:00")).toBeTruthy();
+      expect(levels()).toEqual([1, 2]);
+    });
+
+    it("lands inside a break", () => {
+      seed({ config: structure(), startTime: minutesAgo(22) });
+      render(<App />);
+      expect(screen.getByText("Acontecendo")).toBeTruthy();
+      expect(screen.getByText("03:00")).toBeTruthy();
+      expect(levels()).toEqual([1, 2]);
+    });
+
+    it("stops on the last level at 00:00 when the absence outlasts the tournament", () => {
+      seed({ config: structure(), startTime: minutesAgo(600) });
+      render(<App />);
+      expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+      expect(screen.getByText("00:00")).toBeTruthy();
+      expect(levels()).toEqual([1, 2, 3]);
+    });
+
+    it("leaves a paused tournament where it was", () => {
+      seed({
+        config: structure(),
+        startTime: minutesAgo(600),
+        isRunning: false,
+        timeRemaining: 120,
+        pausedTimeRemaining: 120,
+      });
+      render(<App />);
+      expect(screen.getByText("Nível 1")).toBeTruthy();
+      expect(screen.getByText("02:00")).toBeTruthy();
+      expect(button("Retomar")).toBeTruthy();
+      expect(levels()).toEqual([]);
+    });
+
+    it("caps the time at the level's duration when the clock moved backwards", () => {
+      seed({ config: structure(), startTime: minutesAgo(-60) });
+      render(<App />);
+      expect(screen.getByText("Nível 1")).toBeTruthy();
+      expect(screen.getByText("10:00")).toBeTruthy();
+      tick(1);
+      expect(screen.getByText("09:59")).toBeTruthy();
+    });
+  });
+
+  describe("a late tick, without reloading", () => {
+    it("crosses every level that passed in a single tick", () => {
+      seed({ config: structure() });
+      render(<App />);
+      sleep(30);
+      tick(1);
+      expect(screen.getByText("Nível 3")).toBeTruthy();
+      expect(screen.getByText("04:59")).toBeTruthy();
+      expect(levels()).toEqual([1, 2]);
+    });
+
+    it("stops on the last level at 00:00 when the sleep outlasts the tournament", () => {
+      seed({ config: structure() });
+      render(<App />);
+      sleep(600);
+      tick(1);
+      expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+      expect(levels()).toEqual([1, 2, 3]);
+    });
+
+    it("leaves a paused tournament where it was", () => {
+      seed({ config: structure() });
+      render(<App />);
+      tick(5);
+      fireEvent.click(button("Pausar"));
+      sleep(600);
+      tick(1);
+      expect(screen.getByText("Nível 1")).toBeTruthy();
+      expect(screen.getByText("09:55")).toBeTruthy();
+      expect(levels()).toEqual([]);
+    });
+
+    it("caps the time at the level's duration when the clock moved backwards", () => {
+      seed({ config: structure() });
+      render(<App />);
+      tick(30);
+      sleep(-60);
+      tick(1);
+      expect(screen.getByText("Nível 1")).toBeTruthy();
+      expect(screen.getByText("10:00")).toBeTruthy();
+      tick(1);
+      expect(screen.getByText("09:59")).toBeTruthy();
+    });
+  });
+
+  describe.each([
+    ["without StrictMode", Fragment],
+    ["under StrictMode", StrictMode],
+  ])("alert %s", (_mode, Wrapper) => {
+    const open = () =>
+      render(
+        <Wrapper>
+          <App />
+        </Wrapper>,
+      );
+    const heard = () => {
+      flushAudio();
+
+      return plays;
+    };
+
+    it("rings once when reopening after several transitions, and not again", () => {
+      seed({ config: structure(), startTime: minutesAgo(30) });
+      const view = open();
+      expect(heard()).toBe(1);
+      tick(5);
+      expect(heard()).toBe(1);
+      view.unmount();
+      open();
+      tick(5);
+      expect(heard()).toBe(1);
+    });
+
+    it("rings once when reopening after one transition", () => {
+      seed({ config: structure(), startTime: minutesAgo(12) });
+      open();
+      expect(heard()).toBe(1);
+    });
+
+    it("rings once when reopening after the last level's time ran out", () => {
+      seed({ config: cfg(3, 10), currentLevel: 3, startTime: minutesAgo(5) });
+      open();
+      expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+      expect(heard()).toBe(1);
+      tick(5);
+      expect(heard()).toBe(1);
+    });
+
+    it("rings once when several transitions pass in one late tick", () => {
+      seed({ config: structure() });
+      open();
+      sleep(30);
+      tick(1);
+      expect(screen.getByText("04:59")).toBeTruthy(); // level 3, five minutes in
+      expect(levels()).toEqual([1, 2]);
+      expect(heard()).toBe(1);
+      tick(5);
+      expect(heard()).toBe(1);
+    });
+
+    it("stays silent when reopening without a transition", () => {
+      seed({ config: structure(), startTime: minutesAgo(5) });
+      open();
+      tick(5);
+      expect(heard()).toBe(0);
+    });
+
+    it("stays silent when reopening a paused tournament, however long it was closed", () => {
+      seed({
+        config: structure(),
+        startTime: minutesAgo(600),
+        isRunning: false,
+        timeRemaining: 120,
+        pausedTimeRemaining: 120,
+      });
+      open();
+      tick(5);
+      expect(heard()).toBe(0);
+    });
+
+    it("stays silent when the clock moved backwards", () => {
+      seed({ config: structure(), startTime: minutesAgo(-60) });
+      open();
+      tick(5);
+      expect(heard()).toBe(0);
+    });
+
+    it("shows nothing and raises no error when the browser blocks the sound", async () => {
+      const blocked = vi.fn(() => Promise.reject(new Error("NotAllowedError")));
+      const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+      vi.stubGlobal(
+        "Audio",
+        class {
+          volume = 1; preload = ""; src = "";
+          load() {}
+          play = blocked;
+        },
+      );
+      seed({ config: structure(), startTime: minutesAgo(30) });
+      open();
+      await act(async () => void (await vi.advanceTimersByTimeAsync(200)));
+      expect(blocked).toHaveBeenCalledTimes(1);
+      // jsdom logs its own missing canvas here, so only the sound's error counts.
+      // An unhandled rejection would fail the whole run on its own.
+      expect(errors.mock.calls.filter((c) => String(c[0]).includes("NotAllowedError"))).toEqual([]);
+      expect(screen.getByText("Nível 3")).toBeTruthy();
+    });
+  });
+});
+
+// A refresh in each situation: everything the organizer sees comes back, or moves
+// on by exactly the time that passed while closed.
+describe("refresh", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const shows = (text: string) => expect(screen.getByText(text)).toBeTruthy();
+  const saved = () => JSON.parse(localStorage.getItem(KEY)!);
+  const earlier = {
+    level: 1,
+    smallBlind: 25,
+    bigBlind: 50,
+    startTime: "2026-01-01T11:00:00.000Z",
+    endTime: "2026-01-01T11:10:00.000Z",
+    duration: 10,
+  };
+  const structure = () => cfg(4, 2, 10, 5);
+  const refresh = (view: ReturnType<typeof render>, seconds = 0) => {
+    view.unmount();
+    vi.setSystemTime(Date.now() + seconds * 1000);
+
+    return render(<App />);
+  };
+
+  it("a level running comes back with its time, and moves on with the time closed", () => {
+    seed({ config: structure(), currentLevel: 2, history: [earlier] });
+    const view = render(<App />);
+    tick(30);
+    shows("09:30");
+    refresh(view, 15);
+    shows("Nível 2");
+    shows("09:15");
+    expect(button("Pausar")).toBeTruthy();
+    expect(saved().history).toEqual([earlier]);
+  });
+
+  it("a level paused comes back exactly as it was, however long it was closed", () => {
+    seed({ config: structure(), currentLevel: 2, history: [earlier] });
+    const view = render(<App />);
+    tick(30);
+    fireEvent.click(button("Pausar"));
+    const before = localStorage.getItem(KEY);
+    refresh(view, 3600);
+    shows("Nível 2");
+    shows("09:30");
+    expect(localStorage.getItem(KEY)).toBe(before);
+    tick(10);
+    shows("09:30");
+    fireEvent.click(button("Retomar"));
+    tick(1);
+    shows("09:29");
+  });
+
+  it("a break running comes back with its time, and moves on with the time closed", () => {
+    seed({ config: structure(), currentLevel: 2, isBreak: true, history: [earlier] });
+    const view = render(<App />);
+    tick(30);
+    shows("04:30");
+    refresh(view, 15);
+    shows("Acontecendo");
+    shows("04:15");
+    expect(button("Pausar")).toBeTruthy();
+    expect(saved().isBreak).toBe(true);
+    expect(saved().history).toEqual([earlier]);
+  });
+
+  it("a break paused comes back exactly as it was, however long it was closed", () => {
+    seed({ config: structure(), currentLevel: 2, isBreak: true, history: [earlier] });
+    const view = render(<App />);
+    tick(30);
+    fireEvent.click(button("Pausar"));
+    const before = localStorage.getItem(KEY);
+    refresh(view, 3600);
+    shows("Acontecendo");
+    shows("04:30");
+    expect(localStorage.getItem(KEY)).toBe(before);
+    fireEvent.click(button("Retomar"));
+    tick(1);
+    shows("04:29");
+  });
+
+  it("the last level comes back with its time and without skip", () => {
+    seed({ config: structure(), currentLevel: 4, history: [earlier] });
+    const view = render(<App />);
+    tick(30);
+    refresh(view, 15);
+    shows("Último nível");
+    shows("09:15");
+    expect(button("Próximo Nível").hasAttribute("disabled")).toBe(true);
+    expect(button("Pausar").hasAttribute("disabled")).toBe(false);
+    expect(screen.queryByText("Tempo esgotado")).toBeNull();
+  });
+
+  it("the last level at 00:00 comes back the same, with nothing rewritten", () => {
+    seed({ config: structure(), currentLevel: 4, history: [earlier] });
+    const view = render(<App />);
+    tick(601);
+    shows("Tempo esgotado");
+    const before = localStorage.getItem(KEY);
+    refresh(view, 3600);
+    shows("00:00");
+    shows("Tempo esgotado");
+    shows("Último nível");
+    expect(button("Pausar").hasAttribute("disabled")).toBe(true);
+    expect(button("Próximo Nível").hasAttribute("disabled")).toBe(true);
+    expect(localStorage.getItem(KEY)).toBe(before);
   });
 });
 

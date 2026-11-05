@@ -57,37 +57,23 @@ const saveTournamentState = (state: TournamentState) => {
 
 export const useTournament = () => {
   // Alerta devido e ainda não tocado. Vive só na memória, nunca no estado salvo,
-  // para um refresh não repetir um alerta. Ao abrir o torneio depois de uma
-  // ausência, basta ligar este valor no carregamento abaixo: o efeito do alerta
-  // toca uma vez, mesmo com várias transições.
+  // para um refresh não repetir um alerta. Várias transições de uma vez ligam este
+  // valor uma só vez, e o efeito do alerta toca um único som.
   const alertPending = useRef(false);
 
   const [state, setState] = useState<TournamentState>(() => {
     const savedState = loadTournamentState();
 
     if (savedState) {
-      // Recalcular tempo restante baseado no tempo salvo
-      const now = new Date();
-      const currentLevelData =
-        savedState.config.blindStructure[savedState.currentLevel - 1];
+      // O torneio abre no ponto em que estaria pela hora real.
+      const { state: current, transitioned } = advanceByTime(
+        savedState,
+        new Date(),
+      );
 
-      if (savedState.isRunning && savedState.startTime && currentLevelData) {
-        const totalDuration = savedState.isBreak
-          ? savedState.config.breakDuration * 60
-          : currentLevelData.duration * 60;
+      if (transitioned) alertPending.current = true;
 
-        const elapsedSeconds = Math.floor(
-          (now.getTime() - savedState.startTime.getTime()) / 1000,
-        );
-        const remaining = Math.max(0, totalDuration - elapsedSeconds);
-
-        return {
-          ...savedState,
-          timeRemaining: remaining,
-        };
-      }
-
-      return savedState;
+      return current;
     }
 
     // Estado padrão se não houver estado salvo

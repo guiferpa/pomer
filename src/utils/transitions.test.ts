@@ -140,6 +140,223 @@ describe("advanceByTime", () => {
   });
 });
 
+// Level 1 ends at 1200s, level 2 at 2100s, its break at 2400s, level 3 at 3000s
+// and level 4, the last one, at 4800s.
+describe("advanceByTime after an absence", () => {
+  const entry = (
+    level: number,
+    smallBlind: number,
+    duration: number,
+    from: number,
+    to: number,
+  ) => ({
+    level,
+    smallBlind,
+    bigBlind: smallBlind * 2,
+    startTime: secondsAfterStart(from),
+    endTime: secondsAfterStart(to),
+    duration,
+  });
+  const LEVEL_1 = entry(1, 25, 20, 0, 1200);
+  const LEVEL_2 = entry(2, 50, 15, 1200, 2100);
+  const LEVEL_3 = entry(3, 75, 10, 2400, 3000);
+
+  it("crosses several levels, counting the remaining time from the moment the level really began", () => {
+    const { state, transitioned } = advanceByTime(
+      tournament({
+        config: {
+          ...tournament().config,
+          breakInterval: 10,
+        },
+      }),
+      secondsAfterStart(2100 + 60),
+    );
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(3);
+    expect(state.isBreak).toBe(false);
+    expect(state.timeRemaining).toBe(540);
+    expect(state.startTime).toEqual(secondsAfterStart(2100));
+    expect(state.history).toEqual([LEVEL_1, LEVEL_2]);
+  });
+
+  it("lands inside a break that came due during the absence", () => {
+    const { state, transitioned } = advanceByTime(
+      tournament(),
+      secondsAfterStart(2100 + 60),
+    );
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(2);
+    expect(state.isBreak).toBe(true);
+    expect(state.timeRemaining).toBe(240);
+    expect(state.startTime).toEqual(secondsAfterStart(2100));
+    expect(state.history).toEqual([LEVEL_1, LEVEL_2]);
+  });
+
+  it("passes through a break and lands on the level after it", () => {
+    const { state } = advanceByTime(tournament(), secondsAfterStart(2700));
+
+    expect(state.currentLevel).toBe(3);
+    expect(state.isBreak).toBe(false);
+    expect(state.timeRemaining).toBe(300);
+    expect(state.startTime).toEqual(secondsAfterStart(2400));
+    expect(state.history).toEqual([LEVEL_1, LEVEL_2]);
+  });
+
+  it("starts from a break just the same", () => {
+    const { state } = advanceByTime(
+      tournament({ currentLevel: 2, isBreak: true }),
+      secondsAfterStart(1000),
+    );
+
+    // The break ends at 300s and level 3 at 900s.
+    expect(state.currentLevel).toBe(4);
+    expect(state.timeRemaining).toBe(1700);
+    expect(state.startTime).toEqual(secondsAfterStart(900));
+    expect(state.history).toEqual([entry(3, 75, 10, 300, 900)]);
+  });
+
+  it("gives the full time when it lands exactly where a level begins", () => {
+    const { state } = advanceByTime(tournament(), secondsAfterStart(3000));
+
+    expect(state.currentLevel).toBe(4);
+    expect(state.timeRemaining).toBe(1800);
+    expect(state.startTime).toEqual(secondsAfterStart(3000));
+  });
+
+  it("does not reach the next level one second before it begins", () => {
+    const { state } = advanceByTime(tournament(), secondsAfterStart(2999));
+
+    expect(state.currentLevel).toBe(3);
+    expect(state.timeRemaining).toBe(1);
+  });
+
+  it.each([
+    ["exactly when the last level ends", 4800],
+    ["long after the last level ends", 99 * 3600],
+  ])("stops on the last level at 00:00 %s", (_, seconds) => {
+    const { state, transitioned } = advanceByTime(
+      tournament(),
+      secondsAfterStart(seconds),
+    );
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(4);
+    expect(state.isBreak).toBe(false);
+    expect(state.isRunning).toBe(true);
+    expect(state.timeRemaining).toBe(0);
+    expect(state.startTime).toEqual(secondsAfterStart(3000));
+    expect(state.history).toEqual([LEVEL_1, LEVEL_2, LEVEL_3]);
+    expect(isTimeUp(state)).toBe(true);
+  });
+
+  it("adds to the history it already has", () => {
+    const { state } = advanceByTime(
+      tournament({ currentLevel: 2, history: [LEVEL_1] }),
+      secondsAfterStart(900),
+    );
+
+    expect(state.history.map((h) => h.level)).toEqual([1, 2]);
+  });
+
+  it("leaves a break after the last level on 00:00, however long the absence", () => {
+    const { state, transitioned } = advanceByTime(
+      tournament({ currentLevel: 4, isBreak: true }),
+      secondsAfterStart(99 * 3600),
+    );
+
+    expect(transitioned).toBe(true);
+    expect(isTimeUp(state)).toBe(true);
+    expect(state.history).toEqual([]);
+  });
+
+  it("gets to the same place whether the time passed all at once or tick by tick", () => {
+    let ticked = tournament();
+
+    for (let second = 1; second <= 2700; second++) {
+      ticked = advanceByTime(ticked, secondsAfterStart(second)).state;
+    }
+
+    expect(advanceByTime(tournament(), secondsAfterStart(2700)).state).toEqual(
+      ticked,
+    );
+  });
+
+  describe("with the clock moved backwards", () => {
+    const BEFORE_START = secondsAfterStart(-3600);
+
+    it("caps the remaining time at the level's duration, as if no time had passed", () => {
+      const { state, transitioned } = advanceByTime(tournament(), BEFORE_START);
+
+      expect(transitioned).toBe(false);
+      expect(state.currentLevel).toBe(1);
+      expect(state.timeRemaining).toBe(1200);
+      expect(state.history).toEqual([]);
+    });
+
+    it("caps the remaining time at the break's duration", () => {
+      const { state, transitioned } = advanceByTime(
+        tournament({ currentLevel: 2, isBreak: true }),
+        BEFORE_START,
+      );
+
+      expect(transitioned).toBe(false);
+      expect(state.isBreak).toBe(true);
+      expect(state.timeRemaining).toBe(300);
+    });
+
+    it("keeps counting from the new time instead of freezing until the clock catches up", () => {
+      const moved = advanceByTime(tournament(), BEFORE_START).state;
+      const { state } = advanceByTime(
+        moved,
+        new Date(BEFORE_START.getTime() + 10 * 1000),
+      );
+
+      expect(state.timeRemaining).toBe(1190);
+    });
+
+    it("keeps the last level at 00:00", () => {
+      const expired = tournament({
+        currentLevel: 4,
+        timeRemaining: 0,
+      });
+      const { state, transitioned } = advanceByTime(expired, BEFORE_START);
+
+      expect(transitioned).toBe(false);
+      expect(state).toBe(expired);
+    });
+
+    it("leaves a paused tournament untouched", () => {
+      const before = paused();
+      const { state, transitioned } = advanceByTime(before, BEFORE_START);
+
+      expect(transitioned).toBe(false);
+      expect(state).toBe(before);
+    });
+  });
+
+  it("treats a clock moved forward as a real absence", () => {
+    const { state, transitioned } = advanceByTime(
+      tournament(),
+      secondsAfterStart(1200 + 1),
+    );
+
+    expect(transitioned).toBe(true);
+    expect(state.currentLevel).toBe(2);
+    expect(state.timeRemaining).toBe(899);
+  });
+
+  it("does not mutate the state it receives while crossing levels", () => {
+    const before = tournament();
+    const copy = structuredClone(before);
+
+    advanceByTime(before, secondsAfterStart(9999));
+
+    expect(before).toEqual(copy);
+  });
+});
+
 describe("skipLevel while paused", () => {
   it("gives the next level its full time and stays paused", () => {
     const { state, transitioned } = skipLevel(paused(), NOW);

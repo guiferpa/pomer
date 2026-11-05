@@ -115,7 +115,11 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
   );
 };
 
-// O tempo passou: conta o relógio e, se ele acabou, entra no que vem depois.
+// O tempo passou: acerta o relógio pela hora real e atravessa tudo o que acabou
+// nesse meio-tempo, seja um segundo normal, um timer atrasado ou o app reaberto.
+// O novo nível ou intervalo começa quando o anterior acabou, e não em `now`, para
+// o tempo restante e o histórico ficarem certos. Várias transições contam como
+// uma só, então quem chama toca um único alerta.
 export const advanceByTime = (
   state: TournamentState,
   now: Date,
@@ -126,22 +130,46 @@ export const advanceByTime = (
     return { state, transitioned: false };
   }
 
-  const timeRemaining = calculateTimeRemaining(
-    state.startTime,
-    state.isBreak ? state.config.breakDuration : levelData.duration,
-    now,
-  );
+  const durationMinutes = state.isBreak
+    ? state.config.breakDuration
+    : levelData.duration;
 
-  if (timeRemaining <= 0) {
+  // O relógio do aparelho voltou para trás: é como se nenhum tempo tivesse
+  // passado. O início acompanha a nova hora, senão o relógio ficaria parado até a
+  // hora do aparelho alcançar o início antigo.
+  if (now < state.startTime) {
     return {
-      state: isLastLevel(state)
-        ? { ...state, timeRemaining: 0 }
-        : enterNext(state, now),
-      transitioned: true,
+      state: {
+        ...state,
+        startTime: now,
+        timeRemaining: minutesToSeconds(durationMinutes),
+      },
+      transitioned: false,
     };
   }
 
-  return { state: { ...state, timeRemaining }, transitioned: false };
+  const timeRemaining = calculateTimeRemaining(
+    state.startTime,
+    durationMinutes,
+    now,
+  );
+
+  if (timeRemaining > 0) {
+    return { state: { ...state, timeRemaining }, transitioned: false };
+  }
+
+  if (isLastLevel(state)) {
+    return { state: { ...state, timeRemaining: 0 }, transitioned: true };
+  }
+
+  const end = new Date(
+    state.startTime.getTime() + minutesToSeconds(durationMinutes) * 1000,
+  );
+
+  return {
+    state: advanceByTime(enterNext(state, end), now).state,
+    transitioned: true,
+  };
 };
 
 // O organizador pulou o nível ou intervalo atual.
