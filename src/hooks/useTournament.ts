@@ -4,10 +4,17 @@ import type {
   BreakInfo,
 } from "@/types/tournament";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+
+import { useAudio } from "./useAudio";
 
 import { minutesToSeconds } from "@/utils/helpers";
-import { advanceByTime, isTimeUp, skipLevel } from "@/utils/transitions";
+import {
+  advanceByTime,
+  isTimeUp,
+  skipLevel,
+  type TransitionResult,
+} from "@/utils/transitions";
 
 // Função para carregar estado do localStorage
 const loadTournamentState = (): TournamentState | null => {
@@ -49,6 +56,12 @@ const saveTournamentState = (state: TournamentState) => {
 };
 
 export const useTournament = () => {
+  // Alerta devido e ainda não tocado. Vive só na memória, nunca no estado salvo,
+  // para um refresh não repetir um alerta. Ao abrir o torneio depois de uma
+  // ausência, basta ligar este valor no carregamento abaixo: o efeito do alerta
+  // toca uma vez, mesmo com várias transições.
+  const alertPending = useRef(false);
+
   const [state, setState] = useState<TournamentState>(() => {
     const savedState = loadTournamentState();
 
@@ -95,6 +108,40 @@ export const useTournament = () => {
     };
   });
 
+  const { playSound } = useAudio();
+
+  // Último estado, para calcular cada mudança uma única vez e fora das
+  // atualizações do React, que podem rodar duas vezes. Toda mudança passa por
+  // `update`, então este valor nunca fica atrás do estado.
+  const latest = useRef(state);
+
+  const update = useCallback(
+    (change: (current: TournamentState) => TournamentState) => {
+      latest.current = change(latest.current);
+      setState(latest.current);
+    },
+    [],
+  );
+
+  const advance = useCallback(
+    (step: (current: TournamentState, now: Date) => TransitionResult) => {
+      const result = step(latest.current, new Date());
+
+      if (result.transitioned) alertPending.current = true;
+      update(() => result.state);
+    },
+    [update],
+  );
+
+  // Único lugar que toca o alerta. Toda transição gera um novo estado, e o valor
+  // é desligado antes de tocar, então rodar o efeito de novo não repete o som.
+  useEffect(() => {
+    if (!alertPending.current) return;
+
+    alertPending.current = false;
+    playSound("level_change");
+  }, [state]);
+
   // Salvar estado no localStorage sempre que mudar
   useEffect(() => {
     saveTournamentState(state);
@@ -105,11 +152,7 @@ export const useTournament = () => {
     let interval: NodeJS.Timeout;
 
     if (state.isRunning && state.startTime) {
-      interval = setInterval(() => {
-        const now = new Date();
-
-        setState((prevState) => advanceByTime(prevState, now).state);
-      }, 1000);
+      interval = setInterval(() => advance(advanceByTime), 1000);
     }
 
     return () => {
@@ -117,29 +160,38 @@ export const useTournament = () => {
         clearInterval(interval);
       }
     };
-  }, [state.isRunning, state.startTime, state.isBreak, state.currentLevel]);
+  }, [
+    advance,
+    state.isRunning,
+    state.startTime,
+    state.isBreak,
+    state.currentLevel,
+  ]);
 
   // Iniciar torneio
-  const startTournament = useCallback((config: TournamentConfig) => {
-    const startTime = new Date();
-    const firstLevel = config.blindStructure[0];
+  const startTournament = useCallback(
+    (config: TournamentConfig) => {
+      const startTime = new Date();
+      const firstLevel = config.blindStructure[0];
 
-    setState({
-      config,
-      currentLevel: 1,
-      timeRemaining: minutesToSeconds(
-        firstLevel?.duration || config.levelDuration,
-      ),
-      isRunning: true,
-      isBreak: false,
-      history: [],
-      startTime,
-    });
-  }, []);
+      update(() => ({
+        config,
+        currentLevel: 1,
+        timeRemaining: minutesToSeconds(
+          firstLevel?.duration || config.levelDuration,
+        ),
+        isRunning: true,
+        isBreak: false,
+        history: [],
+        startTime,
+      }));
+    },
+    [update],
+  );
 
   // Pausar/Retomar torneio
   const toggleTournament = useCallback(() => {
-    setState((prevState) => {
+    update((prevState) => {
       // Em 00:00 o torneio segue rodando, o que mantém a tela ligada.
       if (isTimeUp(prevState)) return prevState;
 
@@ -174,21 +226,17 @@ export const useTournament = () => {
         };
       }
     });
-  }, []);
+  }, [update]);
 
   // Pular para próximo nível
-  const nextLevel = useCallback(() => {
-    const now = new Date();
-
-    setState((prevState) => skipLevel(prevState, now).state);
-  }, []);
+  const nextLevel = useCallback(() => advance(skipLevel), [advance]);
 
   // Reset torneio
   const resetTournament = useCallback(() => {
     // Limpar localStorage
     localStorage.removeItem("pomer-tournament-state");
 
-    setState((prevState) => ({
+    update((prevState) => ({
       ...prevState,
       config: {
         ...prevState.config,
@@ -201,7 +249,7 @@ export const useTournament = () => {
       history: [],
       startTime: undefined,
     }));
-  }, []);
+  }, [update]);
 
   // Obter informações do break
   const getBreakInfo = useCallback((): BreakInfo => {
