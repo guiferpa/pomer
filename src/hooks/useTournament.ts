@@ -12,6 +12,7 @@ import { minutesToSeconds } from "@/utils/helpers";
 import {
   advanceByTime,
   isTimeUp,
+  repairSavedState,
   skipLevel,
   type TransitionResult,
 } from "@/utils/transitions";
@@ -62,13 +63,15 @@ export const useTournament = () => {
   const alertPending = useRef(false);
 
   const [state, setState] = useState<TournamentState>(() => {
-    const savedState = loadTournamentState();
+    const loadedState = loadTournamentState();
 
-    if (savedState) {
+    if (loadedState) {
+      const now = new Date();
+
       // O torneio abre no ponto em que estaria pela hora real.
       const { state: current, transitioned } = advanceByTime(
-        savedState,
-        new Date(),
+        repairSavedState(loadedState, now),
+        now,
       );
 
       if (transitioned) alertPending.current = true;

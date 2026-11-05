@@ -525,6 +525,187 @@ describe("last level screen", () => {
   });
 });
 
+describe("tournaments saved by older versions", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const isDisabled = (name: string) => button(name).hasAttribute("disabled");
+  const form = () => screen.queryByRole("button", { name: "Iniciar Torneio" });
+  const saved = () => JSON.parse(localStorage.getItem(KEY)!);
+  const savedLevels = () => saved().history.map((h: { level: number }) => h.level);
+
+  const finished = (level: number, minutesAgo = 0) => ({
+    level,
+    smallBlind: 25,
+    bigBlind: 50,
+    startTime: new Date(Date.now() - (minutesAgo + 1) * 60000).toISOString(),
+    endTime: new Date(Date.now() - minutesAgo * 60000).toISOString(),
+    duration: 1,
+  });
+
+  // Older versions recorded the last level before entering the break after it.
+  const leftoverBreak = (over: Record<string, unknown> = {}) =>
+    seed({
+      config: cfg(3, 3),
+      currentLevel: 3,
+      isBreak: true,
+      timeRemaining: 40,
+      startTime: new Date(Date.now() - 20000).toISOString(),
+      history: [finished(1, 2), finished(2, 1), finished(3)],
+      ...over,
+    });
+  const leftoverBreakPaused = () =>
+    leftoverBreak({ isRunning: false, pausedTimeRemaining: 40 });
+
+  it.each([
+    ["running", leftoverBreak],
+    ["paused", leftoverBreakPaused],
+  ])("a break after the last level, %s, opens on the last level at 00:00", (_, seedIt) => {
+    seedIt();
+    render(<App />);
+    expect(form()).toBeNull();
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(screen.getByText("Último nível")).toBeTruthy();
+    expect(screen.getByText("75")).toBeTruthy();
+    expect(screen.getByText("150")).toBeTruthy();
+    expect(isDisabled("Pausar")).toBe(true);
+    expect(isDisabled("Próximo Nível")).toBe(true);
+    expect(isDisabled("Reset")).toBe(false);
+    tick(120);
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(form()).toBeNull();
+  });
+
+  it("a duplicated history keeps one entry per level, the first one, in order", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const first = finished(1, 9);
+    seed({
+      config: cfg(5, 10),
+      currentLevel: 3,
+      history: [first, finished(1, 7), finished(2, 5), finished(2, 3)],
+    });
+    render(<App />);
+    expect(screen.getAllByText("✓").length).toBe(2);
+    expect(errors.mock.calls.filter((c) => String(c[0]).includes("same key"))).toEqual([]);
+    expect(savedLevels()).toEqual([1, 2]);
+    expect(saved().history[0]).toEqual(first);
+  });
+
+  it("a repeated last level leaves the history, which lists finished levels only", () => {
+    seed({
+      config: cfg(3, 10),
+      currentLevel: 3,
+      history: [finished(1, 9), finished(2, 7), finished(3, 5), finished(3, 3)],
+    });
+    render(<App />);
+    expect(screen.getAllByText("✓").length).toBe(2);
+    expect(savedLevels()).toEqual([1, 2]);
+    expect(screen.queryByText("00:00")).toBeNull();
+    expect(saved().timeRemaining).toBe(60);
+  });
+
+  it.each([
+    ["running", leftoverBreak],
+    ["paused", leftoverBreakPaused],
+  ])("a break after the last level, %s, does not keep the last level in the history", (_, seedIt) => {
+    seedIt();
+    render(<App />);
+    expect(savedLevels()).toEqual([1, 2]);
+  });
+
+  it.each([
+    ["running", leftoverBreak],
+    ["paused", leftoverBreakPaused],
+  ])("a corrected break, %s, is stable across refreshes and keeps the saved format", (_, seedIt) => {
+    seedIt();
+    const first = render(<App />);
+    const corrected = localStorage.getItem(KEY)!;
+    first.unmount();
+    tick(600);
+    render(<App />);
+    expect(screen.getByText("00:00")).toBeTruthy();
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    tick(5);
+    expect(localStorage.getItem(KEY)).toBe(corrected);
+    expect(Object.keys(JSON.parse(corrected)).sort()).toEqual([
+      "config",
+      "currentLevel",
+      "history",
+      "isBreak",
+      "isRunning",
+      "startTime",
+      "timeRemaining",
+    ]);
+  });
+
+  it("a corrected history is stable across refreshes", () => {
+    seed({ config: cfg(5, 10, 20), currentLevel: 3, timeRemaining: 1200, history: [finished(1, 9), finished(1, 7)] });
+    const first = render(<App />);
+    const corrected = localStorage.getItem(KEY)!;
+    first.unmount();
+    render(<App />);
+    expect(localStorage.getItem(KEY)).toBe(corrected);
+    expect(savedLevels()).toEqual([1]);
+  });
+
+  const paused = { isRunning: false, timeRemaining: 40, pausedTimeRemaining: 40 };
+  const twoFinished = () => [finished(1, 3), finished(2, 1)];
+
+  it.each<[string, () => Record<string, unknown>]>([
+    ["a running level", () => ({ config: cfg(5, 10), currentLevel: 3, history: twoFinished() })],
+    ["a paused level", () => ({ config: cfg(5, 10), currentLevel: 3, history: twoFinished(), ...paused })],
+    ["a running break", () => ({ config: cfg(5, 2), currentLevel: 2, isBreak: true, history: twoFinished() })],
+    ["a paused break", () => ({ config: cfg(5, 2), currentLevel: 2, isBreak: true, history: twoFinished(), ...paused })],
+    ["the last level", () => ({ config: cfg(3, 3), currentLevel: 3, history: twoFinished() })],
+    [
+      "the last level at 00:00",
+      () => ({
+        config: cfg(3, 3),
+        currentLevel: 3,
+        timeRemaining: 0,
+        startTime: new Date(Date.now() - 60000).toISOString(),
+        history: twoFinished(),
+      }),
+    ],
+  ])("%s without these problems opens with no change at all", (_, over) => {
+    seed(over());
+    const before = localStorage.getItem(KEY)!;
+    render(<App />);
+    expect(form()).toBeNull();
+    expect(localStorage.getItem(KEY)).toBe(before);
+  });
+
+  it("a tournament that already fell to the form stays there", () => {
+    seed({ config: cfg(3, 3), currentLevel: 4, history: twoFinished() });
+    render(<App />);
+    expect(form()).toBeTruthy();
+  });
+
+  it.each([
+    ["running", leftoverBreak],
+    ["paused", leftoverBreakPaused],
+  ])("a correction of a break, %s, plays no alert, at load or on later ticks", (_, seedIt) => {
+    seedIt();
+    render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    );
+    flushAudio();
+    tick(5);
+    flushAudio();
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(plays).toBe(0);
+  });
+
+  it("a correction of the history plays no alert", () => {
+    seed({ config: cfg(5, 10), currentLevel: 3, history: [finished(1, 9), finished(1, 7)] });
+    render(<App />);
+    flushAudio();
+    expect(savedLevels()).toEqual([1]);
+    expect(plays).toBe(0);
+  });
+});
+
 // main.tsx uses StrictMode, which runs updaters and effects twice in development.
 describe.each([
   ["without StrictMode", Fragment],
@@ -737,6 +918,27 @@ describe("back from an absence", () => {
 
     it("lands inside a break", () => {
       seed({ config: structure(), startTime: minutesAgo(22) });
+      render(<App />);
+      expect(screen.getByText("Acontecendo")).toBeTruthy();
+      expect(screen.getByText("03:00")).toBeTruthy();
+      expect(levels()).toEqual([1, 2]);
+    });
+
+    it("corrects a duplicated history before adding the levels that passed", () => {
+      const first = {
+        level: 1,
+        smallBlind: 25,
+        bigBlind: 50,
+        startTime: "2026-01-01T11:00:00.000Z",
+        endTime: "2026-01-01T11:10:00.000Z",
+        duration: 10,
+      };
+      seed({
+        config: structure(),
+        currentLevel: 2,
+        history: [first, first],
+        startTime: minutesAgo(12),
+      });
       render(<App />);
       expect(screen.getByText("Acontecendo")).toBeTruthy();
       expect(screen.getByText("03:00")).toBeTruthy();

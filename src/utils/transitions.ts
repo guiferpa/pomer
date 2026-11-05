@@ -67,21 +67,6 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
   if (isBreak) {
     const level = currentLevel + 1;
 
-    // Intervalo que sobrou de um estado salvo antes da regra do último nível.
-    if (!config.blindStructure[level - 1]) {
-      return {
-        ...state,
-        isBreak: false,
-        isRunning: true,
-        timeRemaining: 0,
-        pausedTimeRemaining: undefined,
-        // O refresh recalcula o tempo a partir daqui e precisa chegar em zero.
-        startTime: new Date(
-          at.getTime() - minutesToSeconds(levelData.duration) * 1000,
-        ),
-      };
-    }
-
     return enter(
       { currentLevel: level, isBreak: false, history: state.history },
       config.blindStructure[level - 1]?.duration || config.levelDuration,
@@ -180,4 +165,51 @@ export const skipLevel = (
   const next = enterNext(state, now);
 
   return { state: next, transitioned: next !== state };
+};
+
+// Uma entrada por nível, a primeira, e nenhuma do último nível, que nunca termina.
+const repairHistory = ({
+  config,
+  history,
+}: TournamentState): TournamentState["history"] => {
+  const seen = new Set([config.blindStructure.length]);
+  const repaired = history.filter(({ level }) => {
+    if (seen.has(level)) return false;
+    seen.add(level);
+
+    return true;
+  });
+
+  return repaired.length === history.length ? history : repaired;
+};
+
+// Corrige, uma vez ao carregar, o que versões antigas deixaram no estado salvo.
+// Sem esses problemas, devolve o próprio estado recebido, e corrigir de novo um
+// estado já corrigido não muda nada.
+export const repairSavedState = (
+  state: TournamentState,
+  now: Date,
+): TournamentState => {
+  const { blindStructure } = state.config;
+  const history = repairHistory(state);
+
+  if (state.isBreak && state.currentLevel === blindStructure.length) {
+    return {
+      ...state,
+      history,
+      isBreak: false,
+      // Em 00:00 o torneio segue rodando, mesmo que o intervalo estivesse pausado.
+      isRunning: true,
+      timeRemaining: 0,
+      pausedTimeRemaining: undefined,
+      // O refresh recalcula o tempo a partir daqui e precisa chegar em zero.
+      startTime: new Date(
+        now.getTime() -
+          minutesToSeconds(blindStructure[state.currentLevel - 1].duration) *
+            1000,
+      ),
+    };
+  }
+
+  return history === state.history ? state : { ...state, history };
 };
