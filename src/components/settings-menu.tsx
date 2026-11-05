@@ -1,24 +1,14 @@
-import React, { useState } from "react";
-import {
-  Button,
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  Select,
-  SelectItem,
-} from "@heroui/react";
-import { useTheme } from "@heroui/use-theme";
+import React from "react";
+import { Button, Label, ListBox, Modal, Select, useTheme } from "@heroui/react";
 
 import { SettingsIcon } from "./icons";
 
 import { useI18n, useAudio } from "@/hooks";
 
 export const SettingsMenu: React.FC = () => {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const { language, setLanguage, t } = useI18n();
   const { testSound } = useAudio();
-  const [isOpen, setIsOpen] = useState(false);
 
   const themeOptions = [
     { key: "light", label: t("lightMode" as any) },
@@ -32,13 +22,12 @@ export const SettingsMenu: React.FC = () => {
   ];
 
   return (
-    <>
+    <Modal>
       <Button
         isIconOnly
         aria-label={t("settings" as any)}
-        color="default"
         size="sm"
-        onClick={() => setIsOpen(true)}
+        variant="tertiary"
       >
         <SettingsIcon
           size={16}
@@ -46,77 +35,105 @@ export const SettingsMenu: React.FC = () => {
         />
       </Button>
 
-      <Modal isOpen={isOpen} size="sm" onOpenChange={setIsOpen}>
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">
-                {t("settings" as any)}
-              </ModalHeader>
-              <ModalBody className="pb-6">
-                <div className="space-y-6">
-                  {/* Tema */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {t("interfaceTheme" as any)}
-                    </span>
-                    <Select
-                      selectedKeys={[theme]}
-                      onSelectionChange={(keys) => {
-                        const value = Array.from(keys)[0] as string;
-
-                        setTheme(value as "light" | "dark");
-                      }}
-                    >
+      <Modal.Backdrop>
+        <Modal.Container size="sm">
+          <Modal.Dialog>
+            <Modal.CloseTrigger />
+            <Modal.Header>
+              <Modal.Heading>{t("settings" as any)}</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="pb-6">
+              <div className="space-y-6">
+                {/* Tema */}
+                <Select
+                  variant="secondary"
+                  className="flex flex-col gap-2"
+                  value={resolvedTheme}
+                  onChange={(key) => {
+                    if (key) {
+                      setTheme(String(key));
+                    }
+                  }}
+                >
+                  <Label className="text-sm font-medium text-foreground">
+                    {t("interfaceTheme" as any)}
+                  </Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
                       {themeOptions.map((option) => (
-                        <SelectItem key={option.key}>{option.label}</SelectItem>
+                        <ListBox.Item
+                          key={option.key}
+                          id={option.key}
+                          textValue={option.label}
+                        >
+                          {option.label}
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
                       ))}
-                    </Select>
-                  </div>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
 
-                  {/* Idioma */}
-                  <div className="flex flex-col gap-2">
-                    <span className="text-sm font-medium text-foreground">
-                      {t("language" as any)}
-                    </span>
-                    <Select
-                      selectedKeys={[language]}
-                      onSelectionChange={(keys) => {
-                        const value = Array.from(keys)[0] as string;
-
-                        setLanguage(value as "pt" | "es" | "en");
-                      }}
-                    >
+                {/* Idioma */}
+                <Select
+                  variant="secondary"
+                  className="flex flex-col gap-2"
+                  value={language}
+                  onChange={(key) => {
+                    if (key) {
+                      setLanguage(String(key) as "pt" | "es" | "en");
+                    }
+                  }}
+                >
+                  <Label className="text-sm font-medium text-foreground">
+                    {t("language" as any)}
+                  </Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
                       {languageOptions.map((option) => (
-                        <SelectItem key={option.key}>{option.label}</SelectItem>
+                        <ListBox.Item
+                          key={option.key}
+                          id={option.key}
+                          textValue={option.label}
+                        >
+                          {option.label}
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
                       ))}
-                    </Select>
-                  </div>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
 
-                  {/* Configurações de Áudio */}
-                  <div className="flex flex-col gap-4">
-                    <span className="text-sm font-medium text-foreground">
-                      {t("soundEffects" as any)}
-                    </span>
-                    
-                    {/* Botão de teste */}
-                    <Button
-                      size="sm"
-                      variant="flat"
-                      color="primary"
-                      onClick={testSound}
-                      className="w-fit"
-                    >
-                      {t("testSound" as any)}
-                    </Button>
-                  </div>
+                {/* Configurações de Áudio */}
+                <div className="flex flex-col gap-4">
+                  <span className="text-sm font-medium text-foreground">
+                    {t("soundEffects" as any)}
+                  </span>
+
+                  {/* Botão de teste */}
+                  <Button
+                    className="w-fit"
+                    size="sm"
+                    variant="tertiary"
+                    onPress={testSound}
+                  >
+                    {t("testSound" as any)}
+                  </Button>
                 </div>
-              </ModalBody>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
-    </>
+              </div>
+            </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   );
 };
 

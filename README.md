@@ -14,12 +14,10 @@ A modern React-based poker tournament manager with customizable blind structures
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React 18 + TypeScript
-- **UI Framework**: HeroUI v2 (NextUI)
-- **Styling**: Tailwind CSS + Tailwind Variants
+- **Frontend**: React 19 + TypeScript
+- **UI Framework**: HeroUI v3
+- **Styling**: Tailwind CSS v4
 - **Build Tool**: Vite
-- **Animations**: Framer Motion
-- **Routing**: React Router DOM
 
 ## 🚀 Getting Started
 
@@ -94,6 +92,31 @@ npm run build    # Build for production
 npm run preview  # Preview production build
 npm run lint     # Run ESLint with auto-fix
 ```
+
+## 📊 Viewing Metrics
+
+Usage metrics are collected with Google Analytics 4 (measurement ID `G-PMN8PV506L`). To view them, open [Google Analytics](https://analytics.google.com/) with an account that has access to the property, then go to:
+
+- **Reports > Realtime**: visitors and events happening now.
+- **Reports > Engagement > Events**: totals for each event over time. New data can take 24-48 hours to appear.
+- **Admin > DebugView**: events from a browser in debug mode, useful for testing new events.
+
+| Event | Sent when | `event_label` |
+| --- | --- | --- |
+| `tournament_started` | A tournament starts | Tournament name |
+| `tournament_paused` | The clock is paused | - |
+| `tournament_resumed` | The clock is resumed | - |
+| `level_skipped` | A level is skipped manually | Skipped level |
+| `tournament_reset` | A tournament is reset | - |
+
+Events also send `event_category`. To break reports down by `event_category` or `event_label`, first register each one as an event-scoped custom dimension in **Admin > Custom definitions**. Values become available only after registration, and can take up to 48 hours to appear.
+
+Keep in mind when reading the numbers:
+
+- Page views are currently overcounted, because `useAnalytics` sends an extra `config` call each time a component using it mounts.
+- Local development sessions are counted too, because tracking is not limited to production.
+
+To set up a new property, see [ANALYTICS_SETUP.md](ANALYTICS_SETUP.md).
 
 ## 🎯 Target Audience
 

@@ -2,15 +2,16 @@ import type { TournamentConfig } from "@/types/tournament";
 
 import React, { useState, useEffect } from "react";
 import {
-  Card,
-  CardBody,
-  CardHeader,
-  Input,
   Button,
+  Card,
+  Description,
+  Input,
+  Label,
+  ListBox,
   Select,
-  SelectItem,
+  TextField,
+  useTheme,
 } from "@heroui/react";
-import { useTheme } from "@heroui/use-theme";
 
 import { Logo } from "./logo";
 import { LanguageSelector } from "./language-selector";
@@ -51,7 +52,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   onStart,
   initialConfig,
 }) => {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
   const [config, setConfig] = useState<TournamentConfig>(
@@ -125,73 +126,78 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col">
       <Card className="flex-1 flex flex-col">
-        <CardHeader className="flex flex-col gap-1 flex-shrink-0">
+        <Card.Header className="flex flex-col gap-1 flex-shrink-0">
           <div className="flex items-center justify-center gap-2">
             <Logo color={selectedColor} size={32} />
             <h1 className="text-2xl font-bold">{t("appName")}</h1>
           </div>
-          <p className="text-center text-default-500">
+          <p className="text-center text-muted">
             {t("tournamentConfiguration")}
           </p>
-        </CardHeader>
-        <CardBody className="flex flex-col overflow-hidden">
+        </Card.Header>
+        <Card.Content className="flex flex-col overflow-hidden">
           <form className="flex flex-col justify-between" onSubmit={handleSubmit}>
             <div className="overflow-y-auto space-y-6">
-            <Input
-              isRequired
-              label={t("tournamentNameLabel")}
-              placeholder={t("tournamentNameLabel")}
-              value={config.name}
-              onChange={(e) =>
-                setConfig((prev) => ({ ...prev, name: e.target.value }))
-              }
-            />
+            <TextField isRequired name="name">
+              <Label>{t("tournamentNameLabel")}</Label>
+              <Input
+                variant="secondary"
+                placeholder={t("tournamentNameLabel")}
+                value={config.name}
+                onChange={(e) =>
+                  setConfig((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+            </TextField>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                isRequired
-                label={t("levelDuration")}
-                max="60"
-                min="1"
-                type="number"
-                value={config.levelDuration.toString()}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    levelDuration: parseInt(e.target.value) || 20,
-                  }))
-                }
-              />
+              <TextField isRequired name="levelDuration" type="number">
+                <Label>{t("levelDuration")}</Label>
+                <Input
+                  variant="secondary"
+                  max="60"
+                  min="1"
+                  value={config.levelDuration.toString()}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      levelDuration: parseInt(e.target.value) || 20,
+                    }))
+                  }
+                />
+              </TextField>
 
-              <Input
-                isRequired
-                label={t("breakInterval")}
-                max="10"
-                min="1"
-                type="number"
-                value={config.breakInterval.toString()}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    breakInterval: parseInt(e.target.value) || 3,
-                  }))
-                }
-              />
+              <TextField isRequired name="breakInterval" type="number">
+                <Label>{t("breakInterval")}</Label>
+                <Input
+                  variant="secondary"
+                  max="10"
+                  min="1"
+                  value={config.breakInterval.toString()}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      breakInterval: parseInt(e.target.value) || 3,
+                    }))
+                  }
+                />
+              </TextField>
 
-              <Input
-                isRequired
-                label={t("breakDuration")}
-                max="30"
-                min="1"
-                type="number"
-                value={config.breakDuration.toString()}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    breakDuration: parseInt(e.target.value) || 10,
-                  }))
-                }
-              />
+              <TextField isRequired name="breakDuration" type="number">
+                <Label>{t("breakDuration")}</Label>
+                <Input
+                  variant="secondary"
+                  max="30"
+                  min="1"
+                  value={config.breakDuration.toString()}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      breakDuration: parseInt(e.target.value) || 10,
+                    }))
+                  }
+                />
+              </TextField>
             </div>
 
             <div>
@@ -207,7 +213,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                     ${
                       selectedColor === option.key
                         ? "border-2"
-                        : "border-default-200 hover:border-default-300"
+                        : "border-border hover:border-muted"
                     }
                   `}
                     style={{
@@ -225,58 +231,86 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                       className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
                       style={{ backgroundColor: option.color }}
                     />
-                    <span className="text-xs font-medium text-default-600">
+                    <span className="text-xs font-medium text-muted">
                       {option.label}
                     </span>
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-default-400 mt-2">
+              <p className="text-xs text-muted mt-2">
                 {t("chooseColorDescription" as any)}
               </p>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
+            <Select
+              variant="secondary"
+              value={resolvedTheme}
+              onChange={(key) => {
+                if (key) {
+                  setTheme(String(key));
+                }
+              }}
+            >
+              <Label className="block text-sm font-medium mb-2">
                 {t("interfaceTheme")}
-              </label>
-              <Select
-                selectedKeys={[theme]}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-
-                  setTheme(value as "light" | "dark");
-                }}
-              >
-                {getThemeOptions(t).map((option) => (
-                  <SelectItem key={option.key}>{option.label}</SelectItem>
-                ))}
-              </Select>
-              <p className="text-xs text-default-400 mt-2">
+              </Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Description className="block text-xs text-muted mt-2">
                 {t("chooseThemeDescription" as any)}
-              </p>
-            </div>
+              </Description>
+              <Select.Popover>
+                <ListBox>
+                  {getThemeOptions(t).map((option) => (
+                    <ListBox.Item
+                      key={option.key}
+                      id={option.key}
+                      textValue={option.label}
+                    >
+                      {option.label}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
 
             <LanguageSelector />
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
+            <Select
+              variant="secondary"
+              placeholder={t("selectStructurePlaceholder" as any)}
+              value={selectedStructure}
+              onChange={(key) => {
+                if (key) {
+                  handleStructureChange(String(key));
+                }
+              }}
+            >
+              <Label className="block text-sm font-medium mb-2">
                 {t("blindStructure")}
-              </label>
-              <Select
-                placeholder={t("selectStructurePlaceholder" as any)}
-                selectedKeys={[selectedStructure]}
-                onSelectionChange={(keys) => {
-                  const value = Array.from(keys)[0] as string;
-
-                  handleStructureChange(value);
-                }}
-              >
-                {getStructureOptions(t).map((option) => (
-                  <SelectItem key={option.key}>{option.label}</SelectItem>
-                ))}
-              </Select>
-            </div>
+              </Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {getStructureOptions(t).map((option) => (
+                    <ListBox.Item
+                      key={option.key}
+                      id={option.key}
+                      textValue={option.label}
+                    >
+                      {option.label}
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  ))}
+                </ListBox>
+              </Select.Popover>
+            </Select>
 
             <div>
               <h3 className="text-lg font-semibold mb-3">
@@ -286,7 +320,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 {config.blindStructure.slice(0, 3).map((level) => (
                   <div
                     key={level.level}
-                    className="flex justify-between items-center p-2 bg-default-100 rounded-lg"
+                    className="flex justify-between items-center p-2 bg-surface-secondary rounded-lg"
                   >
                     <span className="font-medium">
                       {t("level")} {level.level}
@@ -303,7 +337,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   </div>
                 ))}
                 {config.blindStructure.length > 3 && (
-                  <p className="text-center text-default-500 text-sm">
+                  <p className="text-center text-muted text-sm">
                     ... {t("andMore")} {config.blindStructure.length - 3}{" "}
                     {t("levels")}
                   </p>
@@ -315,7 +349,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <div className="pt-6">
               <Button
                 className="w-full"
-                color="primary"
                 size="lg"
                 style={{
                   backgroundColor: selectedColor,
@@ -323,12 +356,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   transition: "background-color 0.8s ease-in-out",
                 }}
                 type="submit"
+                variant="primary"
               >
                 {t("startTournament")}
               </Button>
             </div>
           </form>
-        </CardBody>
+        </Card.Content>
       </Card>
     </div>
   );

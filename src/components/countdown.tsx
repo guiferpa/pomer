@@ -1,6 +1,6 @@
 import type { TournamentState, LevelHistory } from "@/types/tournament";
 
-import { Card, CardBody, Progress, Chip, Button } from "@heroui/react";
+import { Button, Card, Chip, ProgressBar } from "@heroui/react";
 import React, { useState } from "react";
 
 import { PauseIcon, PlayIcon, NextIcon, ResetIcon } from "./icons";
@@ -69,16 +69,12 @@ export const Countdown: React.FC<CountdownProps> = ({
   if (!currentLevel) {
     return (
       <Card className="w-full">
-        <CardBody className="text-center space-y-4">
-          <p className="text-default-500">{t("noActiveLevel" as any)}</p>
-          <Button
-            color="primary"
-            variant="flat"
-            onClick={onReset}
-          >
+        <Card.Content className="text-center space-y-4">
+          <p className="text-muted">{t("noActiveLevel" as any)}</p>
+          <Button variant="tertiary" onPress={onReset}>
             {t("reset" as any)}
           </Button>
-        </CardBody>
+        </Card.Content>
       </Card>
     );
   }
@@ -93,10 +89,10 @@ export const Countdown: React.FC<CountdownProps> = ({
     <div className="space-y-6">
       {/* Linha 1: Card Principal (Blinds + Countdown) */}
       <Card className="w-full">
-        <CardBody className="text-center space-y-4">
+        <Card.Content className="text-center space-y-4">
           <div className="flex justify-center items-center gap-2">
             <Chip
-              color={state.isBreak ? "warning" : "primary"}
+              color={state.isBreak ? "warning" : "accent"}
               size="lg"
               style={
                 !state.isBreak
@@ -108,7 +104,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                     }
                   : undefined
               }
-              variant="flat"
+              variant="soft"
             >
               {state.isBreak
                 ? t("break" as any)
@@ -121,7 +117,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               <p className="text-2xl font-bold text-warning">
                 {t("break" as any)}
               </p>
-              <p className="text-default-500">
+              <p className="text-muted">
                 {t("next" as any)}: {t("level" as any)} {state.currentLevel + 1}
               </p>
             </div>
@@ -138,12 +134,12 @@ export const Countdown: React.FC<CountdownProps> = ({
                   >
                     {formatCurrency(currentLevel.smallBlind)}
                   </p>
-                  <p className="text-lg font-semibold text-default-500">
+                  <p className="text-lg font-semibold text-muted">
                     {t("smallBlind" as any)}
                   </p>
                 </div>
 
-                <div className="text-4xl font-bold text-default-400">-</div>
+                <div className="text-4xl font-bold text-muted">-</div>
 
                 <div className="text-center">
                   <p
@@ -155,7 +151,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                   >
                     {formatCurrency(currentLevel.bigBlind)}
                   </p>
-                  <p className="text-lg font-semibold text-default-500">
+                  <p className="text-lg font-semibold text-muted">
                     {t("bigBlind" as any)}
                   </p>
                 </div>
@@ -170,15 +166,20 @@ export const Countdown: React.FC<CountdownProps> = ({
             </p>
 
             {state.isBreak ? (
-              <Progress
+              <ProgressBar
+                aria-label={t("break" as any)}
                 className="max-w-xs mx-auto"
                 color="warning"
                 size="md"
                 value={progress}
-              />
+              >
+                <ProgressBar.Track>
+                  <ProgressBar.Fill />
+                </ProgressBar.Track>
+              </ProgressBar>
             ) : (
               <div className="max-w-xs mx-auto">
-                <div className="w-full bg-default-200 rounded-full h-2">
+                <div className="w-full bg-default rounded-full h-2">
                   <div
                     className="h-2 rounded-full transition-all duration-300"
                     style={{
@@ -198,9 +199,10 @@ export const Countdown: React.FC<CountdownProps> = ({
             <Button
               isIconOnly
               aria-label={isRunning ? t("pause" as any) : t("resume" as any)}
-              color={isRunning ? "warning" : "success"}
+              className={isRunning ? "bg-warning" : "bg-success"}
               size="sm"
-              onClick={() => {
+              variant="primary"
+              onPress={() => {
                 onToggle();
                 trackEvent(isRunning ? "tournament_paused" : "tournament_resumed", "Tournament");
               }}
@@ -221,9 +223,9 @@ export const Countdown: React.FC<CountdownProps> = ({
             <Button
               isIconOnly
               aria-label={t("nextLevel" as any)}
-              color="primary"
               size="sm"
-              onClick={() => {
+              variant="primary"
+              onPress={() => {
                 onNextLevel();
                 trackEvent("level_skipped", "Tournament", `Level ${state.currentLevel}`);
                 playSound("level_change");
@@ -238,10 +240,9 @@ export const Countdown: React.FC<CountdownProps> = ({
             <Button
               isIconOnly
               aria-label={t("reset" as any)}
-              color="danger"
               size="sm"
-              variant="flat"
-              onClick={() => setShowResetModal(true)}
+              variant="danger-soft"
+              onPress={() => setShowResetModal(true)}
             >
               <ResetIcon
                 size={16}
@@ -249,7 +250,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               />
             </Button>
           </div>
-        </CardBody>
+        </Card.Content>
       </Card>
 
       {/* Linha 2: Grid com duas colunas */}
@@ -258,12 +259,12 @@ export const Countdown: React.FC<CountdownProps> = ({
         <div className="space-y-4">
           {/* Próximo Nível */}
           <Card className="w-full">
-            <CardBody className="text-center">
+            <Card.Content className="text-center">
               <h3 className="text-lg font-semibold mb-2">
                 {t("nextLevel" as any)}
               </h3>
               <div className="flex justify-center items-center gap-2">
-                <Chip color="default" variant="flat">
+                <Chip color="default" variant="soft">
                   {t("level" as any)}{" "}
                   {state.isBreak
                     ? state.currentLevel + 1
@@ -289,12 +290,12 @@ export const Countdown: React.FC<CountdownProps> = ({
                   })()}
                 </span>
               </div>
-            </CardBody>
+            </Card.Content>
           </Card>
 
           {/* Informações do Break */}
           <Card className="w-full">
-            <CardBody className="text-center">
+            <Card.Content className="text-center">
               <h3 className="text-lg font-semibold mb-2">
                 {t("break" as any)}
               </h3>
@@ -303,14 +304,14 @@ export const Countdown: React.FC<CountdownProps> = ({
                   <p className="text-warning font-semibold">
                     {t("happening" as any)}
                   </p>
-                  <p className="text-sm text-default-400">
+                  <p className="text-sm text-muted">
                     {t("duration" as any)}: {state.config.breakDuration}{" "}
                     {t("minutes" as any)}
                   </p>
                 </div>
               ) : (
                 <div>
-                  <p className="text-default-500">
+                  <p className="text-muted">
                     {(() => {
                       const levelsUntilBreak =
                         state.config.breakInterval -
@@ -323,13 +324,13 @@ export const Countdown: React.FC<CountdownProps> = ({
                             ` ${levelsUntilBreak} ${t("levelPlural" as any)}`;
                     })()}
                   </p>
-                  <p className="text-sm text-default-400">
+                  <p className="text-sm text-muted">
                     {t("duration" as any)}: {state.config.breakDuration}{" "}
                     {t("minutes" as any)}
                   </p>
                 </div>
               )}
-            </CardBody>
+            </Card.Content>
           </Card>
         </div>
 
@@ -345,7 +346,7 @@ export const Countdown: React.FC<CountdownProps> = ({
       {/* Modal de Confirmação de Reset */}
       <ConfirmModal
         cancelText={t("cancel" as any)}
-        confirmColor="danger"
+        confirmVariant="danger"
         confirmText={t("confirm" as any)}
         isOpen={showResetModal}
         message={t("resetMessage" as any)}
