@@ -7,6 +7,9 @@ import {
   shouldTakeBreak,
 } from "@/utils/helpers";
 
+// Folga para o arredondamento dos segundos não parecer um relógio que voltou.
+const ROUNDING_TOLERANCE_SECONDS = 1;
+
 export interface TransitionResult {
   state: TournamentState;
   // Atualizações de estado do React podem rodar duas vezes, então quem chama
@@ -119,25 +122,27 @@ export const advanceByTime = (
     ? state.config.breakDuration
     : levelData.duration;
 
-  // O relógio do aparelho voltou para trás: é como se nenhum tempo tivesse
-  // passado. O início acompanha a nova hora, senão o relógio ficaria parado até a
-  // hora do aparelho alcançar o início antigo.
-  if (now < state.startTime) {
-    return {
-      state: {
-        ...state,
-        startTime: now,
-        timeRemaining: minutesToSeconds(durationMinutes),
-      },
-      transitioned: false,
-    };
-  }
-
   const timeRemaining = calculateTimeRemaining(
     state.startTime,
     durationMinutes,
     now,
   );
+
+  // Rodando, o tempo restante só diminui. Se a conta deu mais do que o salvo, o
+  // relógio do aparelho voltou para trás: é como se nenhum tempo tivesse passado.
+  // O início acompanha a nova hora, para a contagem seguir a partir do salvo.
+  if (timeRemaining > state.timeRemaining + ROUNDING_TOLERANCE_SECONDS) {
+    return {
+      state: {
+        ...state,
+        startTime: new Date(
+          now.getTime() -
+            (minutesToSeconds(durationMinutes) - state.timeRemaining) * 1000,
+        ),
+      },
+      transitioned: false,
+    };
+  }
 
   if (timeRemaining > 0) {
     return { state: { ...state, timeRemaining }, transitioned: false };

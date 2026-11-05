@@ -23,20 +23,27 @@ const cfg = (levels: number, breakInterval: number, duration = 1, breakDuration 
   primaryColor: "#FF6B6B",
 });
 
-const seed = (over: Record<string, unknown>) =>
+const seed = (over: Record<string, any>) => {
+  const { config = cfg(5, 10), currentLevel = 1, isBreak = false } = over;
+  const fullTime =
+    (isBreak
+      ? config.breakDuration
+      : (config.blindStructure[currentLevel - 1]?.duration ?? 0)) * 60;
+
   localStorage.setItem(
     KEY,
     JSON.stringify({
-      config: cfg(5, 10),
-      currentLevel: 1,
-      timeRemaining: 60,
+      config,
+      currentLevel,
+      timeRemaining: fullTime,
       isRunning: true,
-      isBreak: false,
+      isBreak,
       history: [],
       startTime: new Date().toISOString(),
       ...over,
     }),
   );
+};
 
 // One act per second, as the real interval would fire.
 const tick = (seconds: number) => {
@@ -968,13 +975,49 @@ describe("back from an absence", () => {
       expect(levels()).toEqual([]);
     });
 
-    it("caps the time at the level's duration when the clock moved backwards", () => {
-      seed({ config: structure(), startTime: minutesAgo(-60) });
+    it.each([
+      ["still after the level began", 3],
+      ["to before the level began", -60],
+    ])("keeps the level's time when the clock moved backwards %s", (_, minutes) => {
+      seed({ config: structure(), startTime: minutesAgo(minutes), timeRemaining: 120 });
       render(<App />);
       expect(screen.getByText("Nível 1")).toBeTruthy();
-      expect(screen.getByText("10:00")).toBeTruthy();
+      expect(screen.getByText("02:00")).toBeTruthy();
       tick(1);
-      expect(screen.getByText("09:59")).toBeTruthy();
+      expect(screen.getByText("01:59")).toBeTruthy();
+    });
+
+    it.each([
+      ["still after the break began", 1],
+      ["to before the break began", -60],
+    ])("keeps the break's time when the clock moved backwards %s", (_, minutes) => {
+      seed({
+        config: structure(),
+        currentLevel: 2,
+        isBreak: true,
+        startTime: minutesAgo(minutes),
+        timeRemaining: 120,
+      });
+      render(<App />);
+      expect(screen.getByText("Acontecendo")).toBeTruthy();
+      expect(screen.getByText("02:00")).toBeTruthy();
+      tick(1);
+      expect(screen.getByText("01:59")).toBeTruthy();
+    });
+
+    it("keeps the time across a reload after the clock moved backwards while closed", () => {
+      seed({ config: structure() });
+      const view = render(<App />);
+      tick(30);
+      view.unmount();
+      sleep(-1);
+      const reopened = render(<App />);
+      expect(screen.getByText("09:30")).toBeTruthy();
+      tick(1);
+      expect(screen.getByText("09:29")).toBeTruthy();
+      reopened.unmount();
+      render(<App />);
+      expect(screen.getByText("09:29")).toBeTruthy();
     });
   });
 
@@ -1010,16 +1053,31 @@ describe("back from an absence", () => {
       expect(levels()).toEqual([]);
     });
 
-    it("caps the time at the level's duration when the clock moved backwards", () => {
+    it.each([
+      ["still after the level began", 15 / 60],
+      ["to before the level began", 60],
+    ])("keeps the time when the clock moved backwards %s", (_, minutes) => {
       seed({ config: structure() });
       render(<App />);
       tick(30);
-      sleep(-60);
+      sleep(-minutes);
       tick(1);
       expect(screen.getByText("Nível 1")).toBeTruthy();
-      expect(screen.getByText("10:00")).toBeTruthy();
+      expect(screen.getByText("09:30")).toBeTruthy();
       tick(1);
-      expect(screen.getByText("09:59")).toBeTruthy();
+      expect(screen.getByText("09:29")).toBeTruthy();
+    });
+
+    it("does not mistake a pause and resume for the clock moving backwards", () => {
+      seed({ config: structure() });
+      render(<App />);
+      tick(30);
+      fireEvent.click(button("Pausar"));
+      tick(60);
+      fireEvent.click(button("Retomar"));
+      expect(screen.getByText("09:30")).toBeTruthy();
+      tick(1);
+      expect(screen.getByText("09:29")).toBeTruthy();
     });
   });
 

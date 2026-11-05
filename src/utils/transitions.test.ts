@@ -30,7 +30,7 @@ const tournament = (over: Partial<TournamentState> = {}): TournamentState => ({
     ],
   },
   currentLevel: 1,
-  timeRemaining: 780,
+  timeRemaining: 1200,
   isRunning: true,
   isBreak: false,
   history: [],
@@ -274,35 +274,107 @@ describe("advanceByTime after an absence", () => {
 
   describe("with the clock moved backwards", () => {
     const BEFORE_START = secondsAfterStart(-3600);
+    // 10:00 left of the 20-minute level at 12:10.
+    const tenMinutesLeft = () => tournament({ timeRemaining: 600 });
+    // 02:00 left of the 5-minute break at 12:03.
+    const twoMinutesOfBreakLeft = () =>
+      tournament({ currentLevel: 2, isBreak: true, timeRemaining: 120 });
 
-    it("caps the remaining time at the level's duration, as if no time had passed", () => {
-      const { state, transitioned } = advanceByTime(tournament(), BEFORE_START);
+    it.each([
+      ["still after the level began", secondsAfterStart(300)],
+      ["to before the level began", BEFORE_START],
+    ])("keeps the level's time when the clock goes back %s", (_, now) => {
+      const { state, transitioned } = advanceByTime(tenMinutesLeft(), now);
 
       expect(transitioned).toBe(false);
       expect(state.currentLevel).toBe(1);
-      expect(state.timeRemaining).toBe(1200);
+      expect(state.timeRemaining).toBe(600);
       expect(state.history).toEqual([]);
     });
 
-    it("caps the remaining time at the break's duration", () => {
+    it.each([
+      ["still after the break began", secondsAfterStart(60)],
+      ["to before the break began", BEFORE_START],
+    ])("keeps the break's time when the clock goes back %s", (_, now) => {
       const { state, transitioned } = advanceByTime(
-        tournament({ currentLevel: 2, isBreak: true }),
-        BEFORE_START,
+        twoMinutesOfBreakLeft(),
+        now,
       );
 
       expect(transitioned).toBe(false);
       expect(state.isBreak).toBe(true);
-      expect(state.timeRemaining).toBe(300);
+      expect(state.timeRemaining).toBe(120);
     });
 
-    it("keeps counting from the new time instead of freezing until the clock catches up", () => {
-      const moved = advanceByTime(tournament(), BEFORE_START).state;
-      const { state } = advanceByTime(
+    it.each([
+      ["a level", tenMinutesLeft, 600, secondsAfterStart(300)],
+      ["a level, before it began", tenMinutesLeft, 600, BEFORE_START],
+      ["a break", twoMinutesOfBreakLeft, 120, secondsAfterStart(60)],
+      ["a break, before it began", twoMinutesOfBreakLeft, 120, BEFORE_START],
+    ])("keeps counting from there during %s", (_, make, left, now) => {
+      const moved = advanceByTime(make(), now).state;
+      const later = (seconds: number) =>
+        new Date(now.getTime() + seconds * 1000);
+
+      expect(advanceByTime(moved, later(1)).state.timeRemaining).toBe(left - 1);
+      expect(advanceByTime(moved, later(10)).state.timeRemaining).toBe(
+        left - 10,
+      );
+    });
+
+    it("ends the level when the kept time runs out, recording that moment", () => {
+      const now = secondsAfterStart(300);
+      const moved = advanceByTime(tenMinutesLeft(), now).state;
+      const end = new Date(now.getTime() + 600 * 1000);
+      const { state, transitioned } = advanceByTime(moved, end);
+
+      expect(transitioned).toBe(true);
+      expect(state.currentLevel).toBe(2);
+      expect(state.timeRemaining).toBe(900);
+      expect(state.history[0].endTime).toEqual(end);
+    });
+
+    it("still catches up when the clock jumps forward afterwards", () => {
+      const moved = advanceByTime(
+        tenMinutesLeft(),
+        secondsAfterStart(300),
+      ).state;
+      const { state, transitioned } = advanceByTime(
         moved,
-        new Date(BEFORE_START.getTime() + 10 * 1000),
+        secondsAfterStart(300 + 600 + 60),
       );
 
-      expect(state.timeRemaining).toBe(1190);
+      expect(transitioned).toBe(true);
+      expect(state.currentLevel).toBe(2);
+      expect(state.timeRemaining).toBe(840);
+    });
+
+    it("gets back to the same place when it runs again at the same time", () => {
+      const now = secondsAfterStart(300);
+      const moved = advanceByTime(tenMinutesLeft(), now).state;
+
+      expect(advanceByTime(moved, now).state).toEqual(moved);
+    });
+
+    it("does not read one second of rounding as the clock moving back", () => {
+      // 601 computed against 600 saved.
+      const { state } = advanceByTime(
+        tenMinutesLeft(),
+        secondsAfterStart(599),
+      );
+
+      expect(state.startTime).toEqual(START);
+    });
+
+    it("reads two seconds as the clock moving back", () => {
+      // 602 computed against 600 saved.
+      const { state } = advanceByTime(
+        tenMinutesLeft(),
+        secondsAfterStart(598),
+      );
+
+      expect(state.timeRemaining).toBe(600);
+      expect(state.startTime).not.toEqual(START);
     });
 
     it("keeps the last level at 00:00", () => {
