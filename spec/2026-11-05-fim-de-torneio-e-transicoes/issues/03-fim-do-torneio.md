@@ -22,4 +22,4 @@ Spec: `spec/2026-11-05-fim-de-torneio-e-transicoes/spec.md` (regras 1 a 7; bugs 
 - [x] Refresh em `00:00` restaura o mesmo estado.
 - [x] As regras de tempo têm testes no módulo de transições, e a tela tem testes pelo App.
 - [x] T3, T4, T10 e T11 passam sem `it.fails`.
-- [ ] A tela foi conferida em um navegador real, nos temas claro e escuro e em largura de celular.
+- [x] A tela foi conferida em um navegador real, nos temas claro e escuro e em largura de celular.
