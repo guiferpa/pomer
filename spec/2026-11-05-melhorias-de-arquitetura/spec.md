@@ -1,6 +1,6 @@
 ---
 title: Melhorias de arquitetura e bugs restantes
-status: aprovada
+status: em-desenvolvimento
 solicitada-em: 2026-11-05
 substitui:
 ---
