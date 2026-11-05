@@ -17,8 +17,8 @@ export const minutesToSeconds = (minutes: number): number => {
 export const calculateTimeRemaining = (
   startTime: Date,
   durationMinutes: number,
+  now: Date,
 ): number => {
-  const now = new Date();
   const elapsedSeconds = Math.floor(
     (now.getTime() - startTime.getTime()) / 1000,
   );
@@ -33,8 +33,6 @@ export const shouldTakeBreak = (
   currentLevel: number,
   breakInterval: number,
 ): boolean => {
-  console.log(currentLevel, breakInterval, currentLevel % breakInterval);
-
   return currentLevel > 0 && currentLevel % breakInterval === 0;
 };
 

@@ -78,7 +78,7 @@ afterEach(() => {
 });
 
 describe("useTournament", () => {
-  it.fails("T1 skipping a level while paused gives the new level its full time on resume", () => {
+  it("T1 skipping a level while paused gives the new level its full time on resume", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(5, 10, 20)));
     tick(15 * 60);
@@ -90,7 +90,7 @@ describe("useTournament", () => {
     expect(result.current.state.timeRemaining).toBeGreaterThan(19 * 60);
   });
 
-  it.fails("T2 skipping into a break while paused never shows more than the break length", () => {
+  it("T2 skipping into a break while paused never shows more than the break length", () => {
     const { result } = renderHook(() => useTournament());
     act(() => result.current.startTournament(cfg(5, 1, 20, 10)));
     tick(60);
@@ -100,6 +100,37 @@ describe("useTournament", () => {
     tick(1);
     expect(result.current.state.isBreak).toBe(true);
     expect(result.current.state.timeRemaining).toBeLessThanOrEqual(10 * 60);
+  });
+
+  it("skipping while paused survives a refresh in the same saved format", () => {
+    const first = renderHook(() => useTournament());
+    act(() => first.result.current.startTournament(cfg(5, 10, 20)));
+    tick(60);
+    act(() => first.result.current.toggleTournament());
+    act(() => first.result.current.nextLevel());
+    first.unmount();
+
+    expect(Object.keys(JSON.parse(localStorage.getItem(KEY)!)).sort()).toEqual([
+      "config",
+      "currentLevel",
+      "history",
+      "isBreak",
+      "isRunning",
+      "pausedTimeRemaining",
+      "startTime",
+      "timeRemaining",
+    ]);
+
+    tick(300); // time passing while closed must not count
+    const { result } = renderHook(() => useTournament());
+    expect(result.current.state.currentLevel).toBe(2);
+    expect(result.current.state.isRunning).toBe(false);
+    expect(result.current.state.timeRemaining).toBe(1200);
+    expect(result.current.state.history.map((h) => h.level)).toEqual([1]);
+
+    act(() => result.current.toggleTournament());
+    tick(1);
+    expect(result.current.state.timeRemaining).toBe(1199);
   });
 
   it.fails("T3 last level finishing does not repeat it forever", () => {
