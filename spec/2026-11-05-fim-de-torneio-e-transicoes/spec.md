@@ -1,6 +1,6 @@
 ---
 title: Fim de torneio e transições de nível
-status: em-desenvolvimento
+status: concluida
 solicitada-em: 2026-11-05
 substitui:
 ---
