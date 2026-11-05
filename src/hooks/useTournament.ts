@@ -7,7 +7,12 @@ import type {
 import { useState, useEffect, useCallback } from "react";
 
 import { minutesToSeconds } from "@/utils/helpers";
-import { advanceByTime, isTimeUp, skipLevel } from "@/utils/transitions";
+import {
+  advanceByTime,
+  isTimeUp,
+  repairSavedState,
+  skipLevel,
+} from "@/utils/transitions";
 
 // Função para carregar estado do localStorage
 const loadTournamentState = (): TournamentState | null => {
@@ -50,11 +55,13 @@ const saveTournamentState = (state: TournamentState) => {
 
 export const useTournament = () => {
   const [state, setState] = useState<TournamentState>(() => {
-    const savedState = loadTournamentState();
+    const loadedState = loadTournamentState();
 
-    if (savedState) {
-      // Recalcular tempo restante baseado no tempo salvo
+    if (loadedState) {
       const now = new Date();
+      const savedState = repairSavedState(loadedState, now);
+
+      // Recalcular tempo restante baseado no tempo salvo
       const currentLevelData =
         savedState.config.blindStructure[savedState.currentLevel - 1];
 

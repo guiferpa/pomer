@@ -2,12 +2,12 @@ import type { TournamentState } from "@/types/tournament";
 
 import { describe, expect, it } from "vitest";
 
-import { calculateTimeRemaining } from "@/utils/helpers";
 import {
   advanceByTime,
   isLastLevel,
   isTimeUp,
   levelsUntilNextBreak,
+  repairSavedState,
   skipLevel,
 } from "@/utils/transitions";
 
@@ -308,34 +308,54 @@ describe("the last level", () => {
   });
 });
 
-describe("a break left over after the last level", () => {
-  const phantom = (over: Partial<TournamentState> = {}) =>
-    tournament({ currentLevel: 4, isBreak: true, ...over });
+// What the organizer sees from a correction is covered through the App, in
+// bugs.test.tsx. Only what the screen cannot tell apart stays here.
+describe("repairSavedState", () => {
+  const entry = (level: number) => ({
+    level,
+    smallBlind: 25,
+    bigBlind: 50,
+    startTime: START,
+    endTime: START,
+    duration: 20,
+  });
+  const leftover = () =>
+    tournament({
+      currentLevel: 4,
+      isBreak: true,
+      isRunning: false,
+      pausedTimeRemaining: 30,
+      history: [entry(1), entry(1), entry(4)],
+    });
 
-  it("ends on the last level at 00:00 once, and stays there across a reload", () => {
-    const end = secondsAfterStart(300);
-    const { state, transitioned } = advanceByTime(phantom(), end);
+  it("returns the very same state when there is nothing to correct", () => {
+    const clean = tournament({ currentLevel: 2, history: [entry(1)] });
 
-    expect(transitioned).toBe(true);
-    expect(state.currentLevel).toBe(4);
-    expect(state.isBreak).toBe(false);
-    expect(state.timeRemaining).toBe(0);
-    expect(state.history).toEqual([]);
-    // A reload recomputes the time from startTime, which must still give zero.
-    expect(calculateTimeRemaining(state.startTime!, 30, end)).toBe(0);
-
-    const later = advanceByTime(state, secondsAfterStart(301));
-
-    expect(later.transitioned).toBe(false);
-    expect(later.state).toBe(state);
+    expect(repairSavedState(clean, NOW)).toBe(clean);
   });
 
-  it("skipped while paused, lands on 00:00 running, since pausing is not available there", () => {
-    const { state } = skipLevel(phantom({ isRunning: false }), NOW);
+  it("changes nothing when run again, even later", () => {
+    const once = repairSavedState(leftover(), NOW);
 
-    expect(isTimeUp(state)).toBe(true);
-    expect(state.isRunning).toBe(true);
-    expect(state.pausedTimeRemaining).toBeUndefined();
+    expect(repairSavedState(once, secondsAfterStart(99 * 3600))).toBe(once);
+  });
+
+  it("does not mutate the state it receives", () => {
+    const before = leftover();
+    const copy = structuredClone(before);
+
+    repairSavedState(before, NOW);
+
+    expect(before).toEqual(copy);
+  });
+
+  it("reports no transition from the corrected 00:00, so no alert can follow", () => {
+    const { transitioned } = advanceByTime(
+      repairSavedState(leftover(), NOW),
+      secondsAfterStart(99 * 3600),
+    );
+
+    expect(transitioned).toBe(false);
   });
 });
 
