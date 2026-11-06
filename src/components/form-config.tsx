@@ -1,3 +1,4 @@
+import type { TranslationKeys } from "@/i18n/translations";
 import type { TournamentConfig } from "@/types/tournament";
 
 import React, { useState } from "react";
@@ -6,6 +7,7 @@ import {
   Card,
   Chip,
   Description,
+  FieldError,
   Input,
   Label,
   ListBox,
@@ -41,6 +43,39 @@ type Draft = Omit<TournamentConfig, "blindStructure" | "structure" | NumberField
   Record<NumberField, string> & {
     structure: StructureName;
   };
+
+const NUMBER_LIMITS: Record<NumberField, { min: number; max: number }> = {
+  levelDuration: { min: 1, max: 60 },
+  breakInterval: { min: 1, max: 10 },
+  breakDuration: { min: 1, max: 30 },
+};
+
+const NUMBER_FIELDS = Object.keys(NUMBER_LIMITS) as NumberField[];
+
+type FieldErrors = Partial<Record<NumberField, string>>;
+
+const validateNumbers = (
+  draft: Draft,
+  t: (key: TranslationKeys) => string,
+): FieldErrors => {
+  const errors: FieldErrors = {};
+
+  for (const field of NUMBER_FIELDS) {
+    const text = draft[field].trim();
+    const value = Number(text);
+    const { min, max } = NUMBER_LIMITS[field];
+
+    if (text === "") {
+      errors[field] = t("fieldRequired");
+    } else if (!Number.isInteger(value) || value < min || value > max) {
+      errors[field] = t("fieldOutOfRange")
+        .replace("{min}", String(min))
+        .replace("{max}", String(max));
+    }
+  }
+
+  return errors;
+};
 
 const toDraft = (config?: TournamentConfig): Draft => {
   if (!config) {
@@ -109,8 +144,16 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
       : structureDuration(structure),
   );
 
+  const [errors, setErrors] = useState<FieldErrors>({});
+
   const update = (changes: Partial<Draft>) =>
     setDraft((prev) => ({ ...prev, ...changes }));
+
+  // Editar um campo tira o erro dele até a próxima tentativa de iniciar.
+  const updateNumber = (field: NumberField, text: string) => {
+    update({ [field]: text });
+    setErrors(({ [field]: _, ...rest }) => rest);
+  };
 
   // Cada estrutura traz a própria duração e sobrescreve a que estava digitada.
   const handleStructureChange = (name: StructureName) =>
@@ -118,6 +161,13 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const found = validateNumbers(draft, t);
+
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      return;
+    }
+
     onStart({
       ...draft,
       levelDuration: Number(draft.levelDuration),
@@ -166,38 +216,26 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             </TextField>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <TextField isRequired name="levelDuration" type="number">
-                <Label>{t("levelDuration")}</Label>
-                <Input
-                  variant="secondary"
-                  max="60"
-                  min="1"
-                  value={draft.levelDuration}
-                  onChange={(e) => update({ levelDuration: e.target.value })}
-                />
-              </TextField>
-
-              <TextField isRequired name="breakInterval" type="number">
-                <Label>{t("breakInterval")}</Label>
-                <Input
-                  variant="secondary"
-                  max="10"
-                  min="1"
-                  value={draft.breakInterval}
-                  onChange={(e) => update({ breakInterval: e.target.value })}
-                />
-              </TextField>
-
-              <TextField isRequired name="breakDuration" type="number">
-                <Label>{t("breakDuration")}</Label>
-                <Input
-                  variant="secondary"
-                  max="30"
-                  min="1"
-                  value={draft.breakDuration}
-                  onChange={(e) => update({ breakDuration: e.target.value })}
-                />
-              </TextField>
+              {NUMBER_FIELDS.map((field) => (
+                <TextField
+                  key={field}
+                  isRequired
+                  isInvalid={Boolean(errors[field])}
+                  name={field}
+                  type="number"
+                  validationBehavior="aria"
+                  value={draft[field]}
+                  onChange={(text) => updateNumber(field, text)}
+                >
+                  <Label>{t(field)}</Label>
+                  <Input
+                    variant="secondary"
+                    max={NUMBER_LIMITS[field].max}
+                    min={NUMBER_LIMITS[field].min}
+                  />
+                  <FieldError>{errors[field]}</FieldError>
+                </TextField>
+              ))}
             </div>
 
             <div>

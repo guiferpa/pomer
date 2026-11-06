@@ -505,6 +505,24 @@ describe("ConfigForm", () => {
     fireEvent.change(duration, { target: { value: "" } });
     expect(duration.value).toBe("");
   });
+
+  const field = (name: RegExp) => screen.getByRole("spinbutton", { name }) as HTMLInputElement;
+  // The error the field announces, through its own aria-describedby.
+  const errorOf = (input: HTMLInputElement) =>
+    (input.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+
+  it("starting with an empty field shows the error on that field and does not start", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    submit(container);
+    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBe("true");
+    expect(errorOf(field(/Duração dos Níveis/))).toContain("Preencha este campo.");
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByRole("button", { name: "Iniciar Torneio" })).toBeTruthy();
+  });
 });
 
 describe("last level screen", () => {

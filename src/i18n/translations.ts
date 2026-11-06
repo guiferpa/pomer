@@ -103,6 +103,10 @@ export const translations = {
 
     // Persistence
     savedTournamentLost: "Não foi possível recuperar o torneio salvo.",
+
+    // Form validation
+    fieldRequired: "Preencha este campo.",
+    fieldOutOfRange: "Use um número inteiro de {min} a {max}.",
   },
 
   es: {
@@ -209,6 +213,10 @@ export const translations = {
 
     // Persistence
     savedTournamentLost: "No fue posible recuperar el torneo guardado.",
+
+    // Form validation
+    fieldRequired: "Completa este campo.",
+    fieldOutOfRange: "Usa un número entero de {min} a {max}.",
   },
 
   en: {
@@ -314,6 +322,10 @@ export const translations = {
 
     // Persistence
     savedTournamentLost: "The saved tournament could not be recovered.",
+
+    // Form validation
+    fieldRequired: "Fill in this field.",
+    fieldOutOfRange: "Use a whole number from {min} to {max}.",
   },
 };
 
