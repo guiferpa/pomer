@@ -7,9 +7,9 @@ import {
 
 import React, { useState } from "react";
 import {
+  Alert,
   Button,
   Card,
-  Chip,
   Description,
   FieldError,
   Input,
@@ -197,15 +197,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             {t("tournamentConfiguration")}
           </p>
           {savedTournamentLost && (
-            <Chip
-              className="self-center h-auto text-center whitespace-normal"
-              color="warning"
-              role="status"
-              size="lg"
-              variant="soft"
-            >
-              {t("savedTournamentLost")}
-            </Chip>
+            <Alert role="status" status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("savedTournamentLost")}</Alert.Title>
+              </Alert.Content>
+            </Alert>
           )}
         </Card.Header>
         <Card.Content className="flex flex-col overflow-hidden">

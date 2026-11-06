@@ -971,7 +971,8 @@ describe("tournaments saved by older versions", () => {
 
 describe("a saved tournament that cannot be recovered", () => {
   const WARNING = "Não foi possível recuperar o torneio salvo.";
-  const warning = () => screen.queryByText(WARNING);
+  // O aviso é anunciado aos leitores de tela como status.
+  const warning = () => screen.queryByText(WARNING)?.closest('[role="status"]') ?? null;
   const form = () => screen.queryByRole("button", { name: "Iniciar Torneio" });
   const refresh = (view: ReturnType<typeof render>) => {
     view.unmount();
