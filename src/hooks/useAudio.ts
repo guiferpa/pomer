@@ -1,13 +1,10 @@
-// Tipos de sons disponíveis
-export type SoundType = 'level_change' | 'break_start' | 'break_end' | 'tournament_start' | 'tournament_end';
-
 // Arquivo de áudio único
 const AUDIO_FILE = '/pomer/audio/ringtone.mp3';
 
 export const useAudio = () => {
 
   // Função para tocar som
-  const playSound = (_soundType: SoundType) => {
+  const playSound = () => {
       const audio = new Audio();
       audio.volume = 1;
       audio.preload = 'auto';
@@ -26,7 +23,7 @@ export const useAudio = () => {
 
   // Função para testar som
   const testSound = () => {
-    playSound("level_change");
+    playSound();
   };
 
   return {

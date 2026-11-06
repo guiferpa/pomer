@@ -89,7 +89,7 @@ export const useTournament = () => {
     if (!alertPending.current) return;
 
     alertPending.current = false;
-    playSound("level_change");
+    playSound();
   }, [state]);
 
   // Salvar estado no localStorage sempre que mudar
