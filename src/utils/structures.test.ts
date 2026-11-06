@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { STRUCTURE_NAMES } from "@/types/tournament";
 import {
-  STRUCTURE_NAMES,
   blindLevels,
   buildStructure,
   deduceStructure,

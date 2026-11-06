@@ -1,5 +1,5 @@
 import type { TranslationKeys } from "@/i18n/translations";
-import type { TournamentConfig } from "@/types/tournament";
+import type { StructureName, TournamentConfig } from "@/types/tournament";
 
 import React, { useState } from "react";
 import {
@@ -25,7 +25,6 @@ import {
   deduceStructure,
   isStructureName,
   structureDuration,
-  type StructureName,
 } from "@/utils/structures";
 import { useI18n } from "@/hooks";
 

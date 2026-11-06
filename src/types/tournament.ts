@@ -1,4 +1,7 @@
-import type { StructureName } from "@/utils/structures";
+// As estruturas de blinds que o organizador escolhe no formulário.
+export const STRUCTURE_NAMES = ["small", "medium", "large", "turbo"] as const;
+
+export type StructureName = (typeof STRUCTURE_NAMES)[number];
 
 export interface BlindLevel {
   level: number;

@@ -1,9 +1,8 @@
-import type { BlindLevel } from "@/types/tournament";
-
-// As estruturas de blinds que o organizador escolhe no formulário.
-export const STRUCTURE_NAMES = ["small", "medium", "large", "turbo"] as const;
-
-export type StructureName = (typeof STRUCTURE_NAMES)[number];
+import {
+  STRUCTURE_NAMES,
+  type BlindLevel,
+  type StructureName,
+} from "@/types/tournament";
 
 const STRUCTURES: Record<
   StructureName,
