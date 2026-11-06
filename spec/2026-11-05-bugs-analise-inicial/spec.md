@@ -1,6 +1,6 @@
 ---
 title: Correção dos bugs da análise inicial
-status: proposta
+status: concluida
 solicitada-em: 2026-11-05
 substitui:
 ---

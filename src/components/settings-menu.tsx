@@ -4,6 +4,7 @@ import { Button, Label, ListBox, Modal, Select, useTheme } from "@heroui/react";
 import { SettingsIcon } from "./icons";
 
 import { useI18n, useAudio } from "@/hooks";
+import { darkenColor } from "@/utils/helpers";
 
 export const SettingsMenu: React.FC = () => {
   const { resolvedTheme, setTheme } = useTheme();
@@ -11,21 +12,21 @@ export const SettingsMenu: React.FC = () => {
   const { testSound } = useAudio();
 
   const themeOptions = [
-    { key: "light", label: t("lightMode" as any) },
-    { key: "dark", label: t("darkMode" as any) },
+    { key: "light", label: t("lightMode") },
+    { key: "dark", label: t("darkMode") },
   ];
 
   const languageOptions = [
-    { key: "pt", label: t("portuguese" as any) },
-    { key: "es", label: t("spanish" as any) },
-    { key: "en", label: t("english" as any) },
+    { key: "pt", label: t("portuguese") },
+    { key: "es", label: t("spanish") },
+    { key: "en", label: t("english") },
   ];
 
   return (
     <Modal>
       <Button
         isIconOnly
-        aria-label={t("settings" as any)}
+        aria-label={t("settings")}
         size="sm"
         variant="tertiary"
       >
@@ -40,7 +41,7 @@ export const SettingsMenu: React.FC = () => {
           <Modal.Dialog>
             <Modal.CloseTrigger />
             <Modal.Header>
-              <Modal.Heading>{t("settings" as any)}</Modal.Heading>
+              <Modal.Heading>{t("settings")}</Modal.Heading>
             </Modal.Header>
             <Modal.Body className="pb-6">
               <div className="space-y-6">
@@ -56,7 +57,7 @@ export const SettingsMenu: React.FC = () => {
                   }}
                 >
                   <Label className="text-sm font-medium text-foreground">
-                    {t("interfaceTheme" as any)}
+                    {t("interfaceTheme")}
                   </Label>
                   <Select.Trigger>
                     <Select.Value />
@@ -90,7 +91,7 @@ export const SettingsMenu: React.FC = () => {
                   }}
                 >
                   <Label className="text-sm font-medium text-foreground">
-                    {t("language" as any)}
+                    {t("language")}
                   </Label>
                   <Select.Trigger>
                     <Select.Value />
@@ -115,7 +116,7 @@ export const SettingsMenu: React.FC = () => {
                 {/* Configurações de Áudio */}
                 <div className="flex flex-col gap-4">
                   <span className="text-sm font-medium text-foreground">
-                    {t("soundEffects" as any)}
+                    {t("soundEffects")}
                   </span>
 
                   {/* Botão de teste */}
@@ -125,7 +126,7 @@ export const SettingsMenu: React.FC = () => {
                     variant="tertiary"
                     onPress={testSound}
                   >
-                    {t("testSound" as any)}
+                    {t("testSound")}
                   </Button>
                 </div>
               </div>
@@ -137,16 +138,3 @@ export const SettingsMenu: React.FC = () => {
   );
 };
 
-// Função para escurecer uma cor (copiada do Countdown)
-const darkenColor = (color: string, amount: number = 0.3): string => {
-  const hex = color.replace("#", "");
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-
-  const newR = Math.floor(r * (1 - amount));
-  const newG = Math.floor(g * (1 - amount));
-  const newB = Math.floor(b * (1 - amount));
-
-  return `#${newR.toString(16).padStart(2, "0")}${newG.toString(16).padStart(2, "0")}${newB.toString(16).padStart(2, "0")}`;
-};

@@ -1,14 +1,15 @@
 import type { TournamentConfig } from "@/types/tournament";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { useTournament, useLocalStorage, useAnalytics } from "@/hooks";
+import { useTournament } from "@/hooks";
+import { trackEvent } from "@/utils/analytics";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
+import { loadConfig, saveConfig } from "@/utils/persistence";
 
 function App() {
-  const [savedConfig, setSavedConfig] =
-    useLocalStorage<TournamentConfig | null>("pomer-config", null);
+  const [savedConfig, setSavedConfig] = useState(loadConfig);
 
   const {
     state,
@@ -16,9 +17,11 @@ function App() {
     toggleTournament,
     nextLevel,
     resetTournament,
+    savedTournamentLost,
   } = useTournament();
 
-  const { trackEvent } = useAnalytics();
+  // O aviso vale só até o organizador começar outro torneio, e nunca é gravado.
+  const [showLostWarning, setShowLostWarning] = useState(savedTournamentLost);
 
   // Verificar se o torneio está configurado e válido
   const isConfigured = state.config.blindStructure.length > 0 && 
@@ -36,14 +39,16 @@ function App() {
   }, [isConfigured, state.config.name]);
 
   const handleStartTournament = (config: TournamentConfig) => {
+    saveConfig(config);
     setSavedConfig(config);
+    setShowLostWarning(false);
     startTournament(config);
-    trackEvent("tournament_started", "Tournament", config.name);
+    trackEvent("tournament_started", config.name);
   };
 
   const handleReset = () => {
     resetTournament();
-    trackEvent("tournament_reset", "Tournament");
+    trackEvent("tournament_reset");
   };
 
   return (
@@ -52,6 +57,7 @@ function App() {
         {!isConfigured ? (
           <ConfigForm
             initialConfig={savedConfig || undefined}
+            savedTournamentLost={showLostWarning}
             onStart={handleStartTournament}
           />
         ) : (
@@ -67,8 +73,6 @@ function App() {
 
             {/* Cronômetro Principal */}
             <Countdown
-              history={state.history}
-              isRunning={state.isRunning}
               state={state}
               onNextLevel={nextLevel}
               onReset={handleReset}

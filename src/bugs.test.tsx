@@ -1,5 +1,5 @@
-// Each test asserts the CORRECT behaviour. `it.fails` marks a bug still open:
-// when the bug is fixed the test turns red until the marker is removed.
+// Each test asserts the CORRECT behaviour. Every bug in the list is fixed, so
+// no test is expected to fail.
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { Fragment, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,7 +9,7 @@ import { ConfigForm } from "@/components/form-config";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { useTournament } from "@/hooks/useTournament";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { generateBlindLevels } from "@/utils/helpers";
+import { blindLevels, buildStructure } from "@/utils/structures";
 
 const KEY = "pomer-tournament-state";
 let plays = 0;
@@ -19,7 +19,7 @@ const cfg = (levels: number, breakInterval: number, duration = 1, breakDuration 
   levelDuration: duration,
   breakInterval,
   breakDuration,
-  blindStructure: generateBlindLevels(25, levels, duration),
+  blindStructure: blindLevels(25, levels, duration),
   primaryColor: "#FF6B6B",
 });
 
@@ -124,7 +124,6 @@ describe("useTournament", () => {
       "history",
       "isBreak",
       "isRunning",
-      "pausedTimeRemaining",
       "startTime",
       "timeRemaining",
     ]);
@@ -168,9 +167,9 @@ describe("useTournament", () => {
   });
 });
 
-describe("generateBlindLevels", () => {
-  it.fails("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
-    const s = generateBlindLevels(100, 25, 20);
+describe("blind structures", () => {
+  it("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
+    const s = buildStructure("large", 20);
     const jumps = s.slice(1).map((l, i) => l.smallBlind / s[i].smallBlind);
     expect(Math.max(...jumps)).toBeLessThanOrEqual(2);
   });
@@ -220,7 +219,7 @@ describe("App integration", () => {
     expect(saved.history.map((h: { level: number }) => h.level)).toEqual([1, 2]);
   });
 
-  it.fails("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
+  it("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
     const gtag = vi.fn();
     (window as any).gtag = gtag;
     seed({});
@@ -228,7 +227,7 @@ describe("App integration", () => {
     expect(gtag.mock.calls.filter((c) => c[0] === "config").length).toBe(0);
   });
 
-  it.fails("T13 the wake lock is requested once across timer ticks", async () => {
+  it("T13 the wake lock is requested once across timer ticks", async () => {
     const request = vi.fn(async () => {
       const s = new EventTarget() as any;
       s.release = vi.fn(async () => {});
@@ -245,7 +244,7 @@ describe("App integration", () => {
 });
 
 describe("useWakeLock", () => {
-  it.fails("T14 pausing while the request is in flight does not leak the lock", async () => {
+  it("T14 pausing while the request is in flight does not leak the lock", async () => {
     let resolve!: (s: any) => void;
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
@@ -253,12 +252,76 @@ describe("useWakeLock", () => {
       value: { request: () => new Promise((r) => (resolve = r)) },
       configurable: true,
     });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     rerender({ enabled: false });
     await act(async () => resolve(sentinel));
     expect(sentinel.release).toHaveBeenCalled();
+  });
+
+  const stubSentinels = () => {
+    const sentinels: any[] = [];
+    const request = vi.fn(async () => {
+      const s: any = new EventTarget();
+      s.release = vi.fn(async () => {});
+      sentinels.push(s);
+      return s;
+    });
+    Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
+    return { request, sentinels };
+  };
+  const setHidden = (hidden: boolean) => {
+    Object.defineProperty(document, "hidden", { value: hidden, configurable: true });
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+  };
+
+  it("requests the lock again when the page becomes visible while it should stay on", async () => {
+    const { request, sentinels } = stubSentinels();
+    renderHook(({ enabled }) => useWakeLock(enabled), { initialProps: { enabled: true } });
+    await act(async () => {});
+    setHidden(true);
+    expect(sentinels[0].release).toHaveBeenCalled();
+    setHidden(false);
+    await act(async () => {});
+    expect(request).toHaveBeenCalledTimes(2);
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  it("does not request the lock when the page becomes visible while paused", async () => {
+    const { request } = stubSentinels();
+    renderHook(({ enabled }) => useWakeLock(enabled), { initialProps: { enabled: false } });
+    setHidden(true);
+    setHidden(false);
+    await act(async () => {});
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("a failed request produces a single internal warning and no logs", async () => {
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: vi.fn(async () => { throw new Error("denied"); }) },
+      configurable: true,
+    });
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
+      initialProps: { enabled: true },
+    });
+    await act(async () => {});
+    rerender({ enabled: true });
+    await act(async () => {});
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.log).not.toHaveBeenCalled();
+  });
+
+  it("keeps the screen on at 00:00 on the last level", async () => {
+    const { request, sentinels } = stubSentinels();
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    render(<App />);
+    for (let i = 0; i < 65; i++) {
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+    }
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(sentinels[0].release).not.toHaveBeenCalled();
   });
 });
 
@@ -275,7 +338,7 @@ describe("ConfigForm", () => {
       </I18nProvider>,
     );
 
-  it.fails("T15 keeps the saved colour and structure when reopened", () => {
+  it("T15 keeps the saved colour and structure when reopened", () => {
     const onStart = vi.fn();
     const { container } = renderForm(onStart, saved());
     fireEvent.submit(container.querySelector("form")!);
@@ -285,6 +348,14 @@ describe("ConfigForm", () => {
   });
 
   const structureSelect = () => screen.getByRole("button", { name: /Estrutura de Blinds/ });
+  const durationField = () =>
+    screen.getByRole("spinbutton", { name: /Duração dos Níveis/ }) as HTMLInputElement;
+  const typeDuration = (value: string) =>
+    fireEvent.change(durationField(), { target: { value } });
+  const lastConfig = () => JSON.parse(localStorage.getItem("pomer-config")!);
+  const startedConfig = () => JSON.parse(localStorage.getItem(KEY)!).config;
+  const submit = (container: HTMLElement) =>
+    fireEvent.submit(container.querySelector("form")!);
 
   // Waits for the list to close, which proves the Select handled the choice.
   const chooseStructure = async (name: RegExp) => {
@@ -303,16 +374,118 @@ describe("ConfigForm", () => {
     return onStart.mock.calls[0][0];
   };
 
-  // C6 guards T16: `it.fails` accepts any failure, so a broken selector could
-  // otherwise pass for bug 6.
+  // C6 shows the selector reaches Turbo, so a failing T16 points at bug 6.
   it("C6 choosing Turbo yields its 12 levels", async () => {
     const got = await submitAfterChoosing(/Turbo/);
     expect(got.blindStructure.length).toBe(12);
   });
 
-  it.fails("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
+  it("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
     const got = await submitAfterChoosing(/Turbo/);
     expect(got.blindStructure[0].duration).toBe(10);
+  });
+
+  it("choosing a structure fills the level duration with its own", async () => {
+    vi.useRealTimers();
+    renderForm(vi.fn());
+    expect(durationField().value).toBe("20");
+    await chooseStructure(/Turbo/);
+    expect(durationField().value).toBe("10");
+    await chooseStructure(/Grande/);
+    expect(durationField().value).toBe("20");
+  });
+
+  it("switching structure overwrites the duration typed before", async () => {
+    vi.useRealTimers();
+    renderForm(vi.fn());
+    typeDuration("45");
+    await chooseStructure(/Turbo/);
+    expect(durationField().value).toBe("10");
+  });
+
+  it("the duration typed after choosing the structure is the one the tournament uses", async () => {
+    vi.useRealTimers();
+    const onStart = vi.fn();
+    const { container } = renderForm(onStart);
+    await chooseStructure(/Turbo/);
+    typeDuration("7");
+    submit(container);
+    const got = onStart.mock.calls[0][0];
+    expect(got.structure).toBe("turbo");
+    expect(got.levelDuration).toBe(7);
+    expect(got.blindStructure.length).toBe(12);
+    expect(got.blindStructure.every((l: { duration: number }) => l.duration === 7)).toBe(true);
+  });
+
+  it("the last configuration keeps the structure name", async () => {
+    vi.useRealTimers();
+    const { container } = render(<App />);
+    await chooseStructure(/Pequeno/);
+    submit(container);
+    expect(lastConfig().structure).toBe("small");
+    expect(startedConfig().blindStructure.length).toBe(15);
+  });
+
+  it("after a reset the form comes back with the structure, duration and colour left", async () => {
+    vi.useRealTimers();
+    const view = render(<App />);
+    await chooseStructure(/Turbo/);
+    typeDuration("15");
+    fireEvent.click(screen.getByRole("button", { name: /Vermelho/ }));
+    submit(view.container);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+
+    const reopened = () => {
+      expect(structureSelect().textContent).toContain("Turbo");
+      expect(durationField().value).toBe("15");
+      submit(document.body);
+      expect(startedConfig().primaryColor).toBe("#FF6B6B");
+      expect(startedConfig().blindStructure.length).toBe(12);
+      expect(startedConfig().blindStructure[0].duration).toBe(15);
+    };
+
+    reopened();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    cleanup();
+    render(<App />);
+    reopened();
+  });
+
+  it.each<[string, number, number, string, number]>([
+    ["turbo", 12, 25, "Turbo", 12],
+    ["large", 25, 100, "Grande", 25],
+    ["small", 15, 25, "Pequeno", 15],
+    ["no", 9, 30, "Médio", 20],
+  ])(
+    "an older configuration with %s levels opens on the deduced structure, keeping its duration",
+    (_, levels, firstBlind, label, startedLevels) => {
+      localStorage.setItem(
+        "pomer-config",
+        JSON.stringify({
+          ...cfg(levels, 3, 15, 5),
+          blindStructure: blindLevels(firstBlind, levels, 15),
+        }),
+      );
+      const { container } = render(<App />);
+      expect(structureSelect().textContent).toContain(label);
+      expect(durationField().value).toBe("15");
+      submit(container);
+      expect(startedConfig().blindStructure.length).toBe(startedLevels);
+      expect(startedConfig().primaryColor).toBe("#FF6B6B");
+    },
+  );
+
+  it("a tournament already started keeps the levels it saved", () => {
+    const old = buildStructure("large", 1).map((level, i) =>
+      i < 20 ? level : { ...level, smallBlind: 332526, bigBlind: 665052 },
+    );
+    seed({ config: { ...cfg(25, 30), blindStructure: old }, currentLevel: 21 });
+    render(<App />);
+    expect(screen.getAllByText("332.5k").length).toBeGreaterThan(0);
+    tick(5);
+    expect(JSON.parse(localStorage.getItem(KEY)!).config.blindStructure).toEqual(old);
   });
 
   it("T18 re-clicking the already selected structure does not crash the form", async () => {
@@ -326,11 +499,83 @@ describe("ConfigForm", () => {
     expect(onStart.mock.calls[0][0].blindStructure.length).toBe(20);
   });
 
-  it.fails("T17 a number field can be cleared while typing", () => {
+  it("T17 a number field can be cleared while typing", () => {
     renderForm(vi.fn());
     const [duration] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
     fireEvent.change(duration, { target: { value: "" } });
     expect(duration.value).toBe("");
+  });
+
+  const field = (name: RegExp) => screen.getByRole("spinbutton", { name }) as HTMLInputElement;
+  // The error the field announces, through its own aria-describedby.
+  const errorOf = (input: HTMLInputElement) =>
+    (input.getAttribute("aria-describedby") ?? "")
+      .split(" ")
+      .map((id) => document.getElementById(id)?.textContent ?? "")
+      .join(" ");
+
+  it("starting with an empty field shows the error on that field and does not start", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    submit(container);
+    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBe("true");
+    expect(errorOf(field(/Duração dos Níveis/))).toContain("Preencha este campo.");
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByRole("button", { name: "Iniciar Torneio" })).toBeTruthy();
+  });
+
+  it.each<[RegExp, string, string]>([
+    [/Duração dos Níveis/, "0", "1 a 60"],
+    [/Duração dos Níveis/, "61", "1 a 60"],
+    [/Intervalo de Break/, "0", "1 a 10"],
+    [/Intervalo de Break/, "11", "1 a 10"],
+    [/Duração do Break/, "0", "1 a 30"],
+    [/Duração do Break/, "31", "1 a 30"],
+  ])("starting with %s at %s shows the limits on that field and does not start", (name, value, limits) => {
+    const { container } = render(<App />);
+    fireEvent.change(field(name), { target: { value } });
+    submit(container);
+    expect(field(name).getAttribute("aria-invalid")).toBe("true");
+    expect(errorOf(field(name))).toContain(`Use um número inteiro de ${limits}.`);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("values at the limits start the tournament", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "60" } });
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "1" } });
+    fireEvent.change(field(/Duração do Break/), { target: { value: "30" } });
+    submit(container);
+    expect(startedConfig()).toMatchObject({ levelDuration: 60, breakInterval: 1, breakDuration: 30 });
+  });
+
+  it("correcting the value starts the tournament with the value typed", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "50" } });
+    submit(container);
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "25" } });
+    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBeNull();
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "4" } });
+    submit(container);
+    expect(startedConfig()).toMatchObject({ levelDuration: 25, breakInterval: 4 });
+    expect(startedConfig().blindStructure[0].duration).toBe(25);
+  });
+
+  it.each<[string, RegExp, string, string]>([
+    ["es", /Duración de los Niveles/, "Completa este campo.", "Usa un número entero de 1 a 60."],
+    ["en", /Level Duration/, "Fill in this field.", "Use a whole number from 1 to 60."],
+  ])("the field errors exist in %s", (language, name, required, outOfRange) => {
+    localStorage.setItem("pomer-language", language);
+    const { container } = render(<App />);
+    fireEvent.change(field(name), { target: { value: "" } });
+    submit(container);
+    expect(errorOf(field(name))).toContain(required);
+    fireEvent.change(field(name), { target: { value: "99" } });
+    submit(container);
+    expect(errorOf(field(name))).toContain(outOfRange);
   });
 });
 
@@ -665,7 +910,7 @@ describe("tournaments saved by older versions", () => {
     expect(savedLevels()).toEqual([1]);
   });
 
-  const paused = { isRunning: false, timeRemaining: 40, pausedTimeRemaining: 40 };
+  const paused = { isRunning: false, timeRemaining: 40 };
   const twoFinished = () => [finished(1, 3), finished(2, 1)];
 
   it.each<[string, () => Record<string, unknown>]>([
@@ -721,6 +966,99 @@ describe("tournaments saved by older versions", () => {
     flushAudio();
     expect(savedLevels()).toEqual([1]);
     expect(plays).toBe(0);
+  });
+});
+
+describe("a saved tournament that cannot be recovered", () => {
+  const WARNING = "Não foi possível recuperar o torneio salvo.";
+  // O aviso é anunciado aos leitores de tela como status.
+  const warning = () => screen.queryByText(WARNING)?.closest('[role="status"]') ?? null;
+  const form = () => screen.queryByRole("button", { name: "Iniciar Torneio" });
+  const refresh = (view: ReturnType<typeof render>) => {
+    view.unmount();
+
+    return render(<App />);
+  };
+  const { config: _config, ...withoutConfig } = {
+    config: cfg(5, 10),
+    currentLevel: 1,
+    timeRemaining: 60,
+    isRunning: true,
+    isBreak: false,
+    history: [],
+  };
+
+  it.each<[string, string]>([
+    ["an empty object", "{}"],
+    ["an array", "[]"],
+    ["broken JSON", "{oops"],
+    ["an incomplete object", JSON.stringify(withoutConfig)],
+  ])("%s opens the form with a warning, and the next refresh without it", (_, raw) => {
+    localStorage.setItem(KEY, raw);
+    const view = render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeTruthy();
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    refresh(view);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it.each([
+    ["a current level", { currentLevel: "2" }],
+    ["a time", { timeRemaining: "soon" }],
+  ])("%s that is not a number opens the form with a warning", (_, over) => {
+    seed(over);
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeTruthy();
+  });
+
+  it("opens the form without a warning when nothing is saved", () => {
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("opens the form without a warning on the blank state left by older resets", () => {
+    seed({ config: { ...cfg(5, 10), blindStructure: [] }, isRunning: false, timeRemaining: 0 });
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("drops the warning once a new tournament starts", () => {
+    localStorage.setItem(KEY, "{}");
+    const { container } = render(<App />);
+    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("ignores an invalid last configuration without a warning", () => {
+    localStorage.setItem("pomer-config", JSON.stringify({ name: 3 }));
+    render(<App />);
+    expect(warning()).toBeNull();
+    expect(screen.getByDisplayValue("Torneio Pomer")).toBeTruthy();
+  });
+
+  it("empties the tournament key on reset and refills the form with the last configuration", () => {
+    localStorage.setItem("pomer-config", JSON.stringify({ ...cfg(5, 10), name: "Friday" }));
+    const { container } = render(<App />);
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    cleanup();
+    render(<App />);
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    expect(warning()).toBeNull();
   });
 });
 
@@ -821,9 +1159,9 @@ describe.each([
 
   it.each([
     ["a level running", { currentLevel: 3 }],
-    ["a level paused", { currentLevel: 3, isRunning: false, pausedTimeRemaining: 30 }],
+    ["a level paused", { currentLevel: 3, isRunning: false, timeRemaining: 30 }],
     ["a break running", { isBreak: true }],
-    ["a break paused", { isBreak: true, isRunning: false, pausedTimeRemaining: 30 }],
+    ["a break paused", { isBreak: true, isRunning: false, timeRemaining: 30 }],
     ["the last level", { config: cfg(3, 10), currentLevel: 3 }],
   ])("stays silent on a refresh during %s", (_situation, over) => {
     seed(over);
@@ -912,6 +1250,65 @@ describe.each([
   });
 });
 
+describe("analytics", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const track = () => {
+    const gtag = vi.fn();
+    (window as any).gtag = gtag;
+    return () => gtag.mock.calls.filter((c) => c[0] === "event");
+  };
+
+  it("sends tournament_started with the tournament name", () => {
+    const events = track();
+    const { container } = render(<App />);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(events()).toEqual([
+      ["event", "tournament_started", { event_category: "Tournament", event_label: "Torneio Pomer" }],
+    ]);
+  });
+
+  it("sends tournament_paused and tournament_resumed", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Pausar"));
+    fireEvent.click(button("Retomar"));
+    // Como na main: categoria "Tournament" e nenhum rótulo.
+    expect(events().map((c) => [c[1], c[2].event_category, c[2].event_label])).toEqual([
+      ["tournament_paused", "Tournament", undefined],
+      ["tournament_resumed", "Tournament", undefined],
+    ]);
+  });
+
+  it("sends level_skipped with the skipped level", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Próximo Nível"));
+    expect(events()).toEqual([
+      ["event", "level_skipped", { event_category: "Tournament", event_label: "Level 1" }],
+    ]);
+  });
+
+  it("sends tournament_reset", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Reset"));
+    fireEvent.click(button("Resetar"));
+    expect(events().map((c) => [c[1], c[2].event_category, c[2].event_label])).toEqual([
+      ["tournament_reset", "Tournament", undefined],
+    ]);
+  });
+
+  it("sends nothing and does not break without gtag", () => {
+    seed({});
+    render(<App />);
+    expect(() => fireEvent.click(button("Pausar"))).not.toThrow();
+    expect(button("Retomar")).toBeTruthy();
+  });
+});
+
 describe("back from an absence", () => {
   const button = (name: string) => screen.getByRole("button", { name });
   const minutesAgo = (minutes: number) =>
@@ -977,7 +1374,6 @@ describe("back from an absence", () => {
         startTime: minutesAgo(600),
         isRunning: false,
         timeRemaining: 120,
-        pausedTimeRemaining: 120,
       });
       render(<App />);
       expect(screen.getByText("Nível 1")).toBeTruthy();
@@ -1160,7 +1556,6 @@ describe("back from an absence", () => {
         startTime: minutesAgo(600),
         isRunning: false,
         timeRemaining: 120,
-        pausedTimeRemaining: 120,
       });
       open();
       tick(5);
@@ -1289,10 +1684,11 @@ describe("refresh", () => {
     });
     render(<App />);
     shows("20:00");
-    expect(saved().pausedTimeRemaining).toBe(1200);
+    expect("pausedTimeRemaining" in saved()).toBe(false);
     fireEvent.click(button("Retomar"));
     tick(1);
     shows("19:59");
+    expect("pausedTimeRemaining" in saved()).toBe(false);
   });
 
   it("the last level comes back with its time and without skip", () => {
@@ -1352,12 +1748,12 @@ describe("controls (must pass)", () => {
     expect(plays).toBe(1);
   });
 
-  it("C4 with stable callbacks the wake lock is requested once and released on disable", async () => {
+  it("C4 the wake lock is requested once and released on disable", async () => {
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
     const request = vi.fn(async () => sentinel);
     Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     await act(async () => {});

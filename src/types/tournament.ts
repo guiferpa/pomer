@@ -1,3 +1,8 @@
+// As estruturas de blinds que o organizador escolhe no formulário.
+export const STRUCTURE_NAMES = ["small", "medium", "large", "turbo"] as const;
+
+export type StructureName = (typeof STRUCTURE_NAMES)[number];
+
 export interface BlindLevel {
   level: number;
   smallBlind: number;
@@ -10,6 +15,10 @@ export interface TournamentConfig {
   levelDuration: number; // minutos
   breakInterval: number; // a cada quantos níveis
   breakDuration: number; // minutos
+  // Estrutura escolhida no formulário. Os níveis em `blindStructure` valem para
+  // o torneio; o nome serve para o formulário voltar como foi deixado. Falta em
+  // configurações e torneios gravados por versões antigas.
+  structure?: StructureName;
   blindStructure: BlindLevel[];
   primaryColor: string; // cor primária personalizada
 }
@@ -22,7 +31,6 @@ export interface TournamentState {
   isBreak: boolean;
   history: LevelHistory[];
   startTime?: Date;
-  pausedTimeRemaining?: number; // segundos - tempo restante quando pausado
 }
 
 export interface LevelHistory {
@@ -32,10 +40,4 @@ export interface LevelHistory {
   startTime: Date;
   endTime: Date;
   duration: number;
-}
-
-export interface BreakInfo {
-  isBreak: boolean;
-  breakTimeRemaining: number; // segundos
-  nextLevel: number;
 }

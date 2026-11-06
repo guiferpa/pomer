@@ -19,12 +19,7 @@ Após criar a propriedade, você receberá um ID no formato `G-XXXXXXXXXX`
 
 ### 3. Configurar no Projeto
 
-Substitua `G-XXXXXXXXXX` pelos seguintes arquivos:
-
-#### `src/hooks/useAnalytics.ts` (linha 5):
-```typescript
-const GA_MEASUREMENT_ID = 'G-SEU_ID_AQUI';
-```
+Substitua `G-XXXXXXXXXX` no `index.html`, o único lugar que registra a visualização de página:
 
 #### `index.html` (linhas 25 e 30):
 ```html
@@ -56,12 +51,7 @@ O Pomer já está configurado para rastrear:
 - ✅ **tournament_reset** - Quando o torneio é resetado
 - ✅ **level_skipped** - Quando um nível é pulado
 
-### Eventos Futuros (podem ser adicionados):
-- 🔄 **level_completed** - Quando um nível é completado automaticamente
-- 🔄 **color_changed** - Quando a cor do tema é alterada
-- 🔄 **theme_changed** - Quando o tema claro/escuro é alterado
-- 🔄 **language_changed** - Quando o idioma é alterado
-- 🔄 **structure_changed** - Quando a estrutura de blinds é alterada
+Só esses 5 eventos estão definidos.
 
 ## 🎯 Métricas Importantes
 
@@ -77,16 +67,7 @@ Com o Google Analytics, você poderá acompanhar:
 
 ## 🔧 Personalização
 
-Para adicionar novos eventos, use o hook `useAnalytics`:
-
-```typescript
-import { useAnalytics } from "@/hooks";
-
-const { trackEvent } = useAnalytics();
-
-// Exemplo: rastrear mudança de cor
-trackEvent("color_changed", "UI", "blue");
-```
+Para adicionar um novo evento, inclua o nome em `ANALYTICS_EVENTS` (`src/utils/analytics.ts`) e envie com `trackEvent(evento, rótulo)`, no mesmo formato dos eventos que já existem. O TypeScript recusa nomes que não estejam na lista.
 
 ## 📱 Testando
 

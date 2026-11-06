@@ -1,4 +1,4 @@
-import type { TournamentState, LevelHistory } from "@/types/tournament";
+import type { TournamentState } from "@/types/tournament";
 
 import { Button, Card, Chip, ProgressBar } from "@heroui/react";
 import React, { useState } from "react";
@@ -8,65 +8,40 @@ import { HistoryList } from "./history-list";
 import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 
-import { formatTime, formatCurrency, minutesToSeconds } from "@/utils/helpers";
+import {
+  darkenColor,
+  formatTime,
+  formatCurrency,
+  minutesToSeconds,
+} from "@/utils/helpers";
 import {
   currentDurationMinutes,
   isLastLevel,
   isTimeUp,
   levelsUntilNextBreak,
 } from "@/utils/transitions";
-import { useI18n, useAnalytics, useWakeLock } from "@/hooks";
+import { trackEvent } from "@/utils/analytics";
+import { useI18n, useWakeLock } from "@/hooks";
 
 interface CountdownProps {
   state: TournamentState;
-  isRunning: boolean;
   onToggle: () => void;
   onNextLevel: () => void;
   onReset: () => void;
-  history: LevelHistory[];
 }
-
-// Função para escurecer uma cor
-const darkenColor = (color: string, amount: number = 0.3): string => {
-  // Remove o # se presente
-  const hex = color.replace("#", "");
-
-  // Converte para RGB
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-
-  // Escurece a cor
-  const newR = Math.floor(r * (1 - amount));
-  const newG = Math.floor(g * (1 - amount));
-  const newB = Math.floor(b * (1 - amount));
-
-  // Converte de volta para hex
-  return `#${newR.toString(16).padStart(2, "0")}${newG.toString(16).padStart(2, "0")}${newB.toString(16).padStart(2, "0")}`;
-};
 
 export const Countdown: React.FC<CountdownProps> = ({
   state,
-  isRunning,
   onToggle,
   onNextLevel,
   onReset,
-  history,
 }) => {
   const [showResetModal, setShowResetModal] = useState(false);
   const { t } = useI18n();
-  const { trackEvent } = useAnalytics();
+  const { isRunning, history } = state;
   
   // Wake Lock para prevenir hibernação da tela quando o countdown estiver rodando
-  useWakeLock({
-    enabled: isRunning,
-    onError: (error) => {
-      console.warn('Wake Lock não disponível:', error.message);
-    },
-    onRelease: () => {
-      console.log('Wake Lock liberado');
-    },
-  });
+  useWakeLock(isRunning);
 
   const currentLevel = state.config.blindStructure[state.currentLevel - 1];
   const nextLevel = state.config.blindStructure[state.currentLevel];
@@ -75,9 +50,9 @@ export const Countdown: React.FC<CountdownProps> = ({
     return (
       <Card className="w-full">
         <Card.Content className="text-center space-y-4">
-          <p className="text-muted">{t("noActiveLevel" as any)}</p>
+          <p className="text-muted">{t("noActiveLevel")}</p>
           <Button variant="tertiary" onPress={onReset}>
-            {t("reset" as any)}
+            {t("reset")}
           </Button>
         </Card.Content>
       </Card>
@@ -113,18 +88,18 @@ export const Countdown: React.FC<CountdownProps> = ({
               variant="soft"
             >
               {state.isBreak
-                ? t("break" as any)
-                : `${t("level" as any)} ${currentLevel.level}`}
+                ? t("break")
+                : `${t("level")} ${currentLevel.level}`}
             </Chip>
           </div>
 
           {state.isBreak ? (
             <div>
               <p className="text-2xl font-bold text-warning">
-                {t("break" as any)}
+                {t("break")}
               </p>
               <p className="text-muted">
-                {t("next" as any)}: {t("level" as any)} {state.currentLevel + 1}
+                {t("next")}: {t("level")} {state.currentLevel + 1}
               </p>
             </div>
           ) : (
@@ -141,7 +116,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                     {formatCurrency(currentLevel.smallBlind)}
                   </p>
                   <p className="text-lg font-semibold text-muted">
-                    {t("smallBlind" as any)}
+                    {t("smallBlind")}
                   </p>
                 </div>
 
@@ -158,7 +133,7 @@ export const Countdown: React.FC<CountdownProps> = ({
                     {formatCurrency(currentLevel.bigBlind)}
                   </p>
                   <p className="text-lg font-semibold text-muted">
-                    {t("bigBlind" as any)}
+                    {t("bigBlind")}
                   </p>
                 </div>
               </div>
@@ -173,13 +148,13 @@ export const Countdown: React.FC<CountdownProps> = ({
 
             {timeUp && (
               <Chip color="danger" size="lg" variant="soft">
-                {t("timeUp" as any)}
+                {t("timeUp")}
               </Chip>
             )}
 
             {state.isBreak ? (
               <ProgressBar
-                aria-label={t("break" as any)}
+                aria-label={t("break")}
                 className="max-w-xs mx-auto"
                 color="warning"
                 size="md"
@@ -210,14 +185,14 @@ export const Countdown: React.FC<CountdownProps> = ({
 
             <Button
               isIconOnly
-              aria-label={isRunning ? t("pause" as any) : t("resume" as any)}
+              aria-label={isRunning ? t("pause") : t("resume")}
               className={isRunning ? "bg-warning" : "bg-success"}
               isDisabled={timeUp}
               size="sm"
               variant="primary"
               onPress={() => {
                 onToggle();
-                trackEvent(isRunning ? "tournament_paused" : "tournament_resumed", "Tournament");
+                trackEvent(isRunning ? "tournament_paused" : "tournament_resumed");
               }}
             >
               {isRunning ? (
@@ -235,13 +210,13 @@ export const Countdown: React.FC<CountdownProps> = ({
 
             <Button
               isIconOnly
-              aria-label={t("nextLevel" as any)}
+              aria-label={t("nextLevel")}
               isDisabled={lastLevel}
               size="sm"
               variant="primary"
               onPress={() => {
                 onNextLevel();
-                trackEvent("level_skipped", "Tournament", `Level ${state.currentLevel}`);
+                trackEvent("level_skipped",`Level ${state.currentLevel}`);
               }}
             >
               <NextIcon
@@ -252,7 +227,7 @@ export const Countdown: React.FC<CountdownProps> = ({
 
             <Button
               isIconOnly
-              aria-label={t("reset" as any)}
+              aria-label={t("reset")}
               size="sm"
               // Em 00:00 o reset é o único jeito de encerrar e precisa se destacar
               // dos botões desabilitados ao lado.
@@ -278,17 +253,17 @@ export const Countdown: React.FC<CountdownProps> = ({
           <Card className="w-full">
             <Card.Content className="text-center">
               <h3 className="text-lg font-semibold mb-2">
-                {t("nextLevel" as any)}
+                {t("nextLevel")}
               </h3>
               <div className="flex justify-center items-center gap-2">
                 {lastLevel ? (
                   <Chip color="warning" variant="soft">
-                    {t("lastLevel" as any)}
+                    {t("lastLevel")}
                   </Chip>
                 ) : (
                   <>
                     <Chip color="default" variant="soft">
-                      {t("level" as any)} {nextLevel.level}
+                      {t("level")} {nextLevel.level}
                     </Chip>
                     <span
                       className="text-xl font-bold"
@@ -310,32 +285,32 @@ export const Countdown: React.FC<CountdownProps> = ({
           <Card className="w-full">
             <Card.Content className="text-center">
               <h3 className="text-lg font-semibold mb-2">
-                {t("break" as any)}
+                {t("break")}
               </h3>
               {state.isBreak ? (
                 <div>
                   <p className="text-warning font-semibold">
-                    {t("happening" as any)}
+                    {t("happening")}
                   </p>
                   <p className="text-sm text-muted">
-                    {t("duration" as any)}: {state.config.breakDuration}{" "}
-                    {t("minutes" as any)}
+                    {t("duration")}: {state.config.breakDuration}{" "}
+                    {t("minutes")}
                   </p>
                 </div>
               ) : breakIn === null ? (
-                <p className="text-muted">{t("noMoreBreaks" as any)}</p>
+                <p className="text-muted">{t("noMoreBreaks")}</p>
               ) : (
                 <div>
                   <p className="text-muted">
                     {breakIn === 1
-                      ? t("nextBreakIn" as any) +
-                        ` 1 ${t("levelSingular" as any)}`
-                      : t("nextBreakIn" as any) +
-                        ` ${breakIn} ${t("levelPlural" as any)}`}
+                      ? t("nextBreakIn") +
+                        ` 1 ${t("levelSingular")}`
+                      : t("nextBreakIn") +
+                        ` ${breakIn} ${t("levelPlural")}`}
                   </p>
                   <p className="text-sm text-muted">
-                    {t("duration" as any)}: {state.config.breakDuration}{" "}
-                    {t("minutes" as any)}
+                    {t("duration")}: {state.config.breakDuration}{" "}
+                    {t("minutes")}
                   </p>
                 </div>
               )}
@@ -354,12 +329,12 @@ export const Countdown: React.FC<CountdownProps> = ({
 
       {/* Modal de Confirmação de Reset */}
       <ConfirmModal
-        cancelText={t("cancel" as any)}
+        cancelText={t("cancel")}
         confirmVariant="danger"
-        confirmText={t("confirm" as any)}
+        confirmText={t("confirm")}
         isOpen={showResetModal}
-        message={t("resetMessage" as any)}
-        title={t("confirmReset" as any)}
+        message={t("resetMessage")}
+        title={t("confirmReset")}
         onClose={() => setShowResetModal(false)}
         onConfirm={onReset}
       />

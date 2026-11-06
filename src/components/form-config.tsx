@@ -1,10 +1,17 @@
-import type { TournamentConfig } from "@/types/tournament";
-
-import React, { useState, useEffect } from "react";
+import type { TranslationKeys } from "@/i18n/translations";
 import {
+  STRUCTURE_NAMES,
+  type StructureName,
+  type TournamentConfig,
+} from "@/types/tournament";
+
+import React, { useState } from "react";
+import {
+  Alert,
   Button,
   Card,
   Description,
+  FieldError,
   Input,
   Label,
   ListBox,
@@ -16,23 +23,99 @@ import {
 import { Logo } from "./logo";
 import { LanguageSelector } from "./language-selector";
 
-import { defaultStructures } from "@/config/tournament";
-import { generateBlindLevels } from "@/utils/helpers";
+import {
+  DEFAULT_STRUCTURE,
+  buildStructure,
+  deduceStructure,
+  isStructureName,
+  structureDuration,
+} from "@/utils/structures";
 import { useI18n } from "@/hooks";
 
 interface ConfigFormProps {
   onStart: (config: TournamentConfig) => void;
   initialConfig?: TournamentConfig;
+  // O torneio salvo era inválido e foi descartado.
+  savedTournamentLost?: boolean;
 }
 
-const getStructureOptions = (t: (key: any) => string) => [
-  { key: "small", label: t("structureSmall") },
-  { key: "medium", label: t("structureMedium") },
-  { key: "large", label: t("structureLarge") },
-  { key: "turbo", label: t("structureTurbo") },
-];
+// Os campos numéricos guardam o texto digitado, que só vira número ao iniciar.
+type NumberField = "levelDuration" | "breakInterval" | "breakDuration";
 
-const getColorOptions = (t: (key: any) => string) => [
+type Draft = Omit<TournamentConfig, "blindStructure" | "structure" | NumberField> &
+  Record<NumberField, string> & {
+    structure: StructureName;
+  };
+
+const NUMBER_LIMITS: Record<NumberField, { min: number; max: number }> = {
+  levelDuration: { min: 1, max: 60 },
+  breakInterval: { min: 1, max: 10 },
+  breakDuration: { min: 1, max: 30 },
+};
+
+const NUMBER_FIELDS = Object.keys(NUMBER_LIMITS) as NumberField[];
+
+type FieldErrors = Partial<Record<NumberField, string>>;
+
+type Translate = (key: TranslationKeys) => string;
+
+const validateNumbers = (
+  draft: Draft,
+  t: Translate,
+): FieldErrors => {
+  const errors: FieldErrors = {};
+
+  for (const field of NUMBER_FIELDS) {
+    const text = draft[field].trim();
+    const value = Number(text);
+    const { min, max } = NUMBER_LIMITS[field];
+
+    if (text === "") {
+      errors[field] = t("fieldRequired");
+    } else if (!Number.isInteger(value) || value < min || value > max) {
+      errors[field] = t("fieldOutOfRange")
+        .replace("{min}", String(min))
+        .replace("{max}", String(max));
+    }
+  }
+
+  return errors;
+};
+
+const toDraft = (config?: TournamentConfig): Draft => {
+  if (!config) {
+    return {
+      name: "Torneio Pomer",
+      levelDuration: String(structureDuration(DEFAULT_STRUCTURE)),
+      breakInterval: "3",
+      breakDuration: "10",
+      structure: DEFAULT_STRUCTURE,
+      primaryColor: "#006FEE",
+    };
+  }
+
+  const { blindStructure, structure, ...rest } = config;
+
+  return {
+    ...rest,
+    levelDuration: String(config.levelDuration),
+    breakInterval: String(config.breakInterval),
+    breakDuration: String(config.breakDuration),
+    structure: structure ?? deduceStructure(blindStructure),
+  };
+};
+
+const STRUCTURE_LABELS: Record<StructureName, TranslationKeys> = {
+  small: "structureSmall",
+  medium: "structureMedium",
+  large: "structureLarge",
+  turbo: "structureTurbo",
+};
+
+const getStructureOptions = (t: Translate) =>
+  STRUCTURE_NAMES.map((key) => ({ key, label: t(STRUCTURE_LABELS[key]) }));
+
+const getColorOptions = (t: Translate) => [
   { key: "#006FEE", label: t("blue"), color: "#006FEE" },
   { key: "#FF6B6B", label: t("red"), color: "#FF6B6B" },
   { key: "#51CF66", label: t("green"), color: "#51CF66" },
@@ -43,7 +126,7 @@ const getColorOptions = (t: (key: any) => string) => [
   { key: "#FFD43B", label: t("yellow"), color: "#FFD43B" },
 ];
 
-const getThemeOptions = (t: (key: any) => string) => [
+const getThemeOptions = (t: Translate) => [
   { key: "light", label: t("lightMode") },
   { key: "dark", label: t("darkMode") },
 ];
@@ -51,76 +134,55 @@ const getThemeOptions = (t: (key: any) => string) => [
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   onStart,
   initialConfig,
+  savedTournamentLost = false,
 }) => {
   const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
-  const [config, setConfig] = useState<TournamentConfig>(
-    initialConfig || {
-      name: "Torneio Pomer",
-      levelDuration: 20,
-      breakInterval: 3,
-      breakDuration: 10,
-      blindStructure: defaultStructures.medium,
-      primaryColor: "#006FEE",
-    },
+  // O que o organizador escolheu e digitou. A configuração do torneio, com os
+  // níveis, só é montada ao iniciar.
+  const [draft, setDraft] = useState<Draft>(() => toDraft(initialConfig));
+  const { structure, primaryColor: selectedColor } = draft;
+  // Enquanto a duração está vazia ou inválida, a prévia usa a da estrutura.
+  const previewDuration = Number(draft.levelDuration);
+  const preview = buildStructure(
+    structure,
+    Number.isInteger(previewDuration) && previewDuration > 0
+      ? previewDuration
+      : structureDuration(structure),
   );
 
-  const [selectedStructure, setSelectedStructure] = useState("medium");
-  const [selectedColor, setSelectedColor] = useState("#006FEE");
+  const [errors, setErrors] = useState<FieldErrors>({});
 
-  // Atualizar estrutura quando a duração mudar
-  useEffect(() => {
-    setConfig((prev) => {
-      const structure =
-        defaultStructures[selectedStructure as keyof typeof defaultStructures];
-      const startBlind = structure[0]?.smallBlind || 50;
-      const levels = structure.length;
-      const newStructure = generateBlindLevels(
-        startBlind,
-        levels,
-        prev.levelDuration,
-      );
+  const update = (changes: Partial<Draft>) =>
+    setDraft((prev) => ({ ...prev, ...changes }));
 
-      return {
-        ...prev,
-        blindStructure: newStructure,
-      };
-    });
-  }, [config.levelDuration, selectedStructure]);
-
-  // Atualizar cor quando selecionada
-  useEffect(() => {
-    setConfig((prev) => ({
-      ...prev,
-      primaryColor: selectedColor,
-    }));
-  }, [selectedColor]);
-
-  const handleStructureChange = (value: string) => {
-    setSelectedStructure(value);
-    setConfig((prev) => {
-      const structure =
-        defaultStructures[value as keyof typeof defaultStructures];
-      // Regenerar a estrutura com a duração atual configurada
-      const startBlind = structure[0]?.smallBlind || 50;
-      const levels = structure.length;
-      const newStructure = generateBlindLevels(
-        startBlind,
-        levels,
-        prev.levelDuration,
-      );
-
-      return {
-        ...prev,
-        blindStructure: newStructure,
-      };
-    });
+  // Editar um campo tira o erro dele até a próxima tentativa de iniciar.
+  const updateNumber = (field: NumberField, text: string) => {
+    update({ [field]: text });
+    setErrors(({ [field]: _, ...rest }) => rest);
   };
+
+  // Cada estrutura traz a própria duração e sobrescreve a que estava digitada.
+  const handleStructureChange = (name: StructureName) =>
+    update({ structure: name, levelDuration: String(structureDuration(name)) });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStart(config);
+    const found = validateNumbers(draft, t);
+
+    setErrors(found);
+    if (Object.keys(found).length > 0) {
+      return;
+    }
+
+    onStart({
+      ...draft,
+      levelDuration: Number(draft.levelDuration),
+      breakInterval: Number(draft.breakInterval),
+      breakDuration: Number(draft.breakDuration),
+      blindStructure: preview,
+    });
   };
 
   return (
@@ -134,6 +196,14 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
           <p className="text-center text-muted">
             {t("tournamentConfiguration")}
           </p>
+          {savedTournamentLost && (
+            <Alert role="status" status="warning">
+              <Alert.Indicator />
+              <Alert.Content>
+                <Alert.Title>{t("savedTournamentLost")}</Alert.Title>
+              </Alert.Content>
+            </Alert>
+          )}
         </Card.Header>
         <Card.Content className="flex flex-col overflow-hidden">
           <form className="flex flex-col justify-between" onSubmit={handleSubmit}>
@@ -143,61 +213,34 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               <Input
                 variant="secondary"
                 placeholder={t("tournamentNameLabel")}
-                value={config.name}
+                value={draft.name}
                 onChange={(e) =>
-                  setConfig((prev) => ({ ...prev, name: e.target.value }))
+                  update({ name: e.target.value })
                 }
               />
             </TextField>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <TextField isRequired name="levelDuration" type="number">
-                <Label>{t("levelDuration")}</Label>
-                <Input
-                  variant="secondary"
-                  max="60"
-                  min="1"
-                  value={config.levelDuration.toString()}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      levelDuration: parseInt(e.target.value) || 20,
-                    }))
-                  }
-                />
-              </TextField>
-
-              <TextField isRequired name="breakInterval" type="number">
-                <Label>{t("breakInterval")}</Label>
-                <Input
-                  variant="secondary"
-                  max="10"
-                  min="1"
-                  value={config.breakInterval.toString()}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      breakInterval: parseInt(e.target.value) || 3,
-                    }))
-                  }
-                />
-              </TextField>
-
-              <TextField isRequired name="breakDuration" type="number">
-                <Label>{t("breakDuration")}</Label>
-                <Input
-                  variant="secondary"
-                  max="30"
-                  min="1"
-                  value={config.breakDuration.toString()}
-                  onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      breakDuration: parseInt(e.target.value) || 10,
-                    }))
-                  }
-                />
-              </TextField>
+              {NUMBER_FIELDS.map((field) => (
+                <TextField
+                  key={field}
+                  isRequired
+                  isInvalid={Boolean(errors[field])}
+                  name={field}
+                  type="number"
+                  validationBehavior="aria"
+                  value={draft[field]}
+                  onChange={(text) => updateNumber(field, text)}
+                >
+                  <Label>{t(field)}</Label>
+                  <Input
+                    variant="secondary"
+                    max={NUMBER_LIMITS[field].max}
+                    min={NUMBER_LIMITS[field].min}
+                  />
+                  <FieldError>{errors[field]}</FieldError>
+                </TextField>
+              ))}
             </div>
 
             <div>
@@ -225,7 +268,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                           : undefined,
                     }}
                     type="button"
-                    onClick={() => setSelectedColor(option.key)}
+                    onClick={() => update({ primaryColor: option.key })}
                   >
                     <div
                       className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
@@ -238,7 +281,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 ))}
               </div>
               <p className="text-xs text-muted mt-2">
-                {t("chooseColorDescription" as any)}
+                {t("chooseColorDescription")}
               </p>
             </div>
 
@@ -259,7 +302,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Select.Indicator />
               </Select.Trigger>
               <Description className="block text-xs text-muted mt-2">
-                {t("chooseThemeDescription" as any)}
+                {t("chooseThemeDescription")}
               </Description>
               <Select.Popover>
                 <ListBox>
@@ -281,11 +324,11 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
             <Select
               variant="secondary"
-              placeholder={t("selectStructurePlaceholder" as any)}
-              value={selectedStructure}
+              placeholder={t("selectStructurePlaceholder")}
+              value={structure}
               onChange={(key) => {
-                if (key) {
-                  handleStructureChange(String(key));
+                if (isStructureName(key)) {
+                  handleStructureChange(key);
                 }
               }}
             >
@@ -317,7 +360,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 {t("structurePreview")}
               </h3>
               <div className="grid grid-cols-1 gap-2">
-                {config.blindStructure.slice(0, 3).map((level) => (
+                {preview.slice(0, 3).map((level) => (
                   <div
                     key={level.level}
                     className="flex justify-between items-center p-2 bg-surface-secondary rounded-lg"
@@ -336,9 +379,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                     </span>
                   </div>
                 ))}
-                {config.blindStructure.length > 3 && (
+                {preview.length > 3 && (
                   <p className="text-center text-muted text-sm">
-                    ... {t("andMore")} {config.blindStructure.length - 3}{" "}
+                    ... {t("andMore")} {preview.length - 3}{" "}
                     {t("levels")}
                   </p>
                 )}
