@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import {
   Button,
   Card,
+  Chip,
   Description,
   Input,
   Label,
@@ -23,6 +24,8 @@ import { useI18n } from "@/hooks";
 interface ConfigFormProps {
   onStart: (config: TournamentConfig) => void;
   initialConfig?: TournamentConfig;
+  // O torneio salvo era inválido e foi descartado.
+  savedTournamentLost?: boolean;
 }
 
 const getStructureOptions = (t: (key: any) => string) => [
@@ -51,6 +54,7 @@ const getThemeOptions = (t: (key: any) => string) => [
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   onStart,
   initialConfig,
+  savedTournamentLost = false,
 }) => {
   const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
@@ -134,6 +138,17 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
           <p className="text-center text-muted">
             {t("tournamentConfiguration")}
           </p>
+          {savedTournamentLost && (
+            <Chip
+              className="self-center h-auto text-center whitespace-normal"
+              color="warning"
+              role="status"
+              size="lg"
+              variant="soft"
+            >
+              {t("savedTournamentLost")}
+            </Chip>
+          )}
         </Card.Header>
         <Card.Content className="flex flex-col overflow-hidden">
           <form className="flex flex-col justify-between" onSubmit={handleSubmit}>

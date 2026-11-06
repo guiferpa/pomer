@@ -724,6 +724,98 @@ describe("tournaments saved by older versions", () => {
   });
 });
 
+describe("a saved tournament that cannot be recovered", () => {
+  const WARNING = "Não foi possível recuperar o torneio salvo.";
+  const warning = () => screen.queryByText(WARNING);
+  const form = () => screen.queryByRole("button", { name: "Iniciar Torneio" });
+  const refresh = (view: ReturnType<typeof render>) => {
+    view.unmount();
+
+    return render(<App />);
+  };
+  const { config: _config, ...withoutConfig } = {
+    config: cfg(5, 10),
+    currentLevel: 1,
+    timeRemaining: 60,
+    isRunning: true,
+    isBreak: false,
+    history: [],
+  };
+
+  it.each<[string, string]>([
+    ["an empty object", "{}"],
+    ["an array", "[]"],
+    ["broken JSON", "{oops"],
+    ["an incomplete object", JSON.stringify(withoutConfig)],
+  ])("%s opens the form with a warning, and the next refresh without it", (_, raw) => {
+    localStorage.setItem(KEY, raw);
+    const view = render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeTruthy();
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    refresh(view);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it.each([
+    ["a current level", { currentLevel: "2" }],
+    ["a time", { timeRemaining: "soon" }],
+  ])("%s that is not a number opens the form with a warning", (_, over) => {
+    seed(over);
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeTruthy();
+  });
+
+  it("opens the form without a warning when nothing is saved", () => {
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("opens the form without a warning on the blank state left by older resets", () => {
+    seed({ config: { ...cfg(5, 10), blindStructure: [] }, isRunning: false, timeRemaining: 0 });
+    render(<App />);
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("drops the warning once a new tournament starts", () => {
+    localStorage.setItem(KEY, "{}");
+    const { container } = render(<App />);
+    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    expect(form()).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+
+  it("ignores an invalid last configuration without a warning", () => {
+    localStorage.setItem("pomer-config", JSON.stringify({ name: 3 }));
+    render(<App />);
+    expect(warning()).toBeNull();
+    expect(screen.getByDisplayValue("Torneio Pomer")).toBeTruthy();
+  });
+
+  it("empties the tournament key on reset and refills the form with the last configuration", () => {
+    localStorage.setItem("pomer-config", JSON.stringify({ ...cfg(5, 10), name: "Friday" }));
+    const { container } = render(<App />);
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    fireEvent.submit(container.querySelector("form")!);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    cleanup();
+    render(<App />);
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByDisplayValue("Friday")).toBeTruthy();
+    expect(warning()).toBeNull();
+  });
+});
+
 // main.tsx uses StrictMode, which runs updaters and effects twice in development.
 describe.each([
   ["without StrictMode", Fragment],

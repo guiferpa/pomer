@@ -1,14 +1,14 @@
 import type { TournamentConfig } from "@/types/tournament";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { useTournament, useLocalStorage, useAnalytics } from "@/hooks";
+import { useTournament, useAnalytics } from "@/hooks";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
+import { loadConfig, saveConfig } from "@/utils/persistence";
 
 function App() {
-  const [savedConfig, setSavedConfig] =
-    useLocalStorage<TournamentConfig | null>("pomer-config", null);
+  const [savedConfig, setSavedConfig] = useState(loadConfig);
 
   const {
     state,
@@ -16,7 +16,11 @@ function App() {
     toggleTournament,
     nextLevel,
     resetTournament,
+    savedTournamentLost,
   } = useTournament();
+
+  // O aviso vale só até o organizador começar outro torneio, e nunca é gravado.
+  const [showLostWarning, setShowLostWarning] = useState(savedTournamentLost);
 
   const { trackEvent } = useAnalytics();
 
@@ -36,7 +40,9 @@ function App() {
   }, [isConfigured, state.config.name]);
 
   const handleStartTournament = (config: TournamentConfig) => {
+    saveConfig(config);
     setSavedConfig(config);
+    setShowLostWarning(false);
     startTournament(config);
     trackEvent("tournament_started", "Tournament", config.name);
   };
@@ -52,6 +58,7 @@ function App() {
         {!isConfigured ? (
           <ConfigForm
             initialConfig={savedConfig || undefined}
+            savedTournamentLost={showLostWarning}
             onStart={handleStartTournament}
           />
         ) : (

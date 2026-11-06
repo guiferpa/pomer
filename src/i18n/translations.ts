@@ -100,6 +100,9 @@ export const translations = {
     testSound: "Testar Som",
     muted: "Mudo",
     soundOn: "Som Ligado",
+
+    // Persistence
+    savedTournamentLost: "Não foi possível recuperar o torneio salvo.",
   },
 
   es: {
@@ -203,6 +206,9 @@ export const translations = {
     testSound: "Probar Sonido",
     muted: "Silenciado",
     soundOn: "Sonido Activado",
+
+    // Persistence
+    savedTournamentLost: "No fue posible recuperar el torneo guardado.",
   },
 
   en: {
@@ -305,6 +311,9 @@ export const translations = {
     testSound: "Test Sound",
     muted: "Muted",
     soundOn: "Sound On",
+
+    // Persistence
+    savedTournamentLost: "The saved tournament could not be recovered.",
   },
 };
 

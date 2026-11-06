@@ -14,50 +14,11 @@ import {
   currentDurationMinutes,
   isTimeUp,
   levelDurationMinutes,
-  repairSavedState,
   skipLevel,
   startTimeFor,
   type TransitionResult,
 } from "@/utils/transitions";
-
-// Função para carregar estado do localStorage
-const loadTournamentState = (): TournamentState | null => {
-  try {
-    const saved = localStorage.getItem("pomer-tournament-state");
-
-    if (saved) {
-      const parsed = JSON.parse(saved);
-
-      // Converter strings de data de volta para objetos Date
-      if (parsed.startTime) {
-        parsed.startTime = new Date(parsed.startTime);
-      }
-      // Converter datas do histórico
-      if (parsed.history) {
-        parsed.history = parsed.history.map((item: any) => ({
-          ...item,
-          startTime: new Date(item.startTime),
-          endTime: new Date(item.endTime),
-        }));
-      }
-
-      return parsed;
-    }
-  } catch (error) {
-    console.error("Erro ao carregar estado do torneio:", error);
-  }
-
-  return null;
-};
-
-// Função para salvar estado no localStorage
-const saveTournamentState = (state: TournamentState) => {
-  try {
-    localStorage.setItem("pomer-tournament-state", JSON.stringify(state));
-  } catch (error) {
-    console.error("Erro ao salvar estado do torneio:", error);
-  }
-};
+import { loadTournament, saveTournament } from "@/utils/persistence";
 
 export const useTournament = () => {
   // Alerta devido e ainda não tocado. Vive só na memória, nunca no estado salvo,
@@ -65,17 +26,20 @@ export const useTournament = () => {
   // valor uma só vez, e o efeito do alerta toca um único som.
   const alertPending = useRef(false);
 
+  // Lido uma vez só. Um torneio inválido abre como se nada estivesse salvo, e a
+  // primeira gravação esvazia a chave, então o refresh seguinte não avisa de novo.
+  const [loaded] = useState(() => {
+    const now = new Date();
+
+    return { now, result: loadTournament(now) };
+  });
+
   const [state, setState] = useState<TournamentState>(() => {
-    const loadedState = loadTournamentState();
+    const { now, result } = loaded;
 
-    if (loadedState) {
-      const now = new Date();
-
+    if (result.status === "saved") {
       // O torneio abre no ponto em que estaria pela hora real.
-      const { state: current, transitioned } = advanceByTime(
-        repairSavedState(loadedState, now),
-        now,
-      );
+      const { state: current, transitioned } = advanceByTime(result.state, now);
 
       if (transitioned) alertPending.current = true;
 
@@ -136,7 +100,7 @@ export const useTournament = () => {
 
   // Salvar estado no localStorage sempre que mudar
   useEffect(() => {
-    saveTournamentState(state);
+    saveTournament(state);
   }, [state]);
 
   // Timer effect
@@ -218,10 +182,8 @@ export const useTournament = () => {
   const nextLevel = useCallback(() => runTransition(skipLevel), [runTransition]);
 
   // Reset torneio
+  // Sem estrutura de blinds, a gravação esvazia a chave do torneio.
   const resetTournament = useCallback(() => {
-    // Limpar localStorage
-    localStorage.removeItem("pomer-tournament-state");
-
     changeState((prevState) => ({
       ...prevState,
       config: {
@@ -256,5 +218,6 @@ export const useTournament = () => {
     nextLevel,
     resetTournament,
     getBreakInfo,
+    savedTournamentLost: loaded.result.status === "invalid",
   };
 };
