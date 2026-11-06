@@ -15,3 +15,7 @@ Spec: `spec/2026-11-05-melhorias-de-arquitetura/spec.md` (regras 21 a 24; bugs 7
 - [ ] Em `00:00` no último nível, a tela continua ligada.
 - [ ] T13 e T14 passam sem `it.fails`.
 - [ ] O controle C4 foi atualizado para a nova interface, sem perder o que verifica.
+
+## Comments
+
+- 2026-11-06: na revisão da regra 24, o usuário aceitou a mudança no fallback: o intervalo de `mousemove` começa antes do `video.play()`, os dois param se o `play()` falhar, e o fallback para a cada liberação.
