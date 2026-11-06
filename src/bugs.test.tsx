@@ -1,5 +1,5 @@
-// Each test asserts the CORRECT behaviour. `it.fails` marks a bug still open:
-// when the bug is fixed the test turns red until the marker is removed.
+// Each test asserts the CORRECT behaviour. Every bug in the list is fixed, so
+// no test is expected to fail.
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { Fragment, StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
