@@ -9,9 +9,9 @@ export const LanguageSelector: React.FC = () => {
   const { language, setLanguage, t } = useI18n();
 
   const languageOptions = [
-    { key: "pt", label: t("portuguese" as any) },
-    { key: "es", label: t("spanish" as any) },
-    { key: "en", label: t("english" as any) },
+    { key: "pt", label: t("portuguese") },
+    { key: "es", label: t("spanish") },
+    { key: "en", label: t("english") },
   ];
 
   return (
@@ -25,7 +25,7 @@ export const LanguageSelector: React.FC = () => {
       }}
     >
       <Label className="block text-sm font-medium mb-2">
-        {t("language" as any)}
+        {t("language")}
       </Label>
       <Select.Trigger>
         <Select.Value />

@@ -11,21 +11,21 @@ export const SettingsMenu: React.FC = () => {
   const { testSound } = useAudio();
 
   const themeOptions = [
-    { key: "light", label: t("lightMode" as any) },
-    { key: "dark", label: t("darkMode" as any) },
+    { key: "light", label: t("lightMode") },
+    { key: "dark", label: t("darkMode") },
   ];
 
   const languageOptions = [
-    { key: "pt", label: t("portuguese" as any) },
-    { key: "es", label: t("spanish" as any) },
-    { key: "en", label: t("english" as any) },
+    { key: "pt", label: t("portuguese") },
+    { key: "es", label: t("spanish") },
+    { key: "en", label: t("english") },
   ];
 
   return (
     <Modal>
       <Button
         isIconOnly
-        aria-label={t("settings" as any)}
+        aria-label={t("settings")}
         size="sm"
         variant="tertiary"
       >
@@ -40,7 +40,7 @@ export const SettingsMenu: React.FC = () => {
           <Modal.Dialog>
             <Modal.CloseTrigger />
             <Modal.Header>
-              <Modal.Heading>{t("settings" as any)}</Modal.Heading>
+              <Modal.Heading>{t("settings")}</Modal.Heading>
             </Modal.Header>
             <Modal.Body className="pb-6">
               <div className="space-y-6">
@@ -56,7 +56,7 @@ export const SettingsMenu: React.FC = () => {
                   }}
                 >
                   <Label className="text-sm font-medium text-foreground">
-                    {t("interfaceTheme" as any)}
+                    {t("interfaceTheme")}
                   </Label>
                   <Select.Trigger>
                     <Select.Value />
@@ -90,7 +90,7 @@ export const SettingsMenu: React.FC = () => {
                   }}
                 >
                   <Label className="text-sm font-medium text-foreground">
-                    {t("language" as any)}
+                    {t("language")}
                   </Label>
                   <Select.Trigger>
                     <Select.Value />
@@ -115,7 +115,7 @@ export const SettingsMenu: React.FC = () => {
                 {/* Configurações de Áudio */}
                 <div className="flex flex-col gap-4">
                   <span className="text-sm font-medium text-foreground">
-                    {t("soundEffects" as any)}
+                    {t("soundEffects")}
                   </span>
 
                   {/* Botão de teste */}
@@ -125,7 +125,7 @@ export const SettingsMenu: React.FC = () => {
                     variant="tertiary"
                     onPress={testSound}
                   >
-                    {t("testSound" as any)}
+                    {t("testSound")}
                   </Button>
                 </div>
               </div>

@@ -276,7 +276,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 ))}
               </div>
               <p className="text-xs text-muted mt-2">
-                {t("chooseColorDescription" as any)}
+                {t("chooseColorDescription")}
               </p>
             </div>
 
@@ -297,7 +297,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 <Select.Indicator />
               </Select.Trigger>
               <Description className="block text-xs text-muted mt-2">
-                {t("chooseThemeDescription" as any)}
+                {t("chooseThemeDescription")}
               </Description>
               <Select.Popover>
                 <ListBox>
@@ -319,7 +319,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
 
             <Select
               variant="secondary"
-              placeholder={t("selectStructurePlaceholder" as any)}
+              placeholder={t("selectStructurePlaceholder")}
               value={structure}
               onChange={(key) => {
                 if (isStructureName(key)) {

@@ -21,7 +21,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
     <Card className="w-full">
       <Card.Header>
         <Card.Title className="text-lg font-semibold">
-          {t("levelHistory" as any)}
+          {t("levelHistory")}
         </Card.Title>
       </Card.Header>
       <Card.Content>
@@ -40,7 +40,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                     ✓
                   </Chip>
                   <span className="font-medium">
-                    {t("level" as any)} {level.level}
+                    {t("level")} {level.level}
                   </span>
                 </div>
                 <div className="text-right">
@@ -63,7 +63,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({
 
           {history.length === 0 && (
             <div className="text-center text-muted py-4">
-              <p>{t("noLevelsPlayedYet" as any)}</p>
+              <p>{t("noLevelsPlayedYet")}</p>
             </div>
           )}
         </div>
