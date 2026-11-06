@@ -1,6 +1,6 @@
 import type { TournamentConfig } from "@/types/tournament";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Button,
   Card,
@@ -17,8 +17,14 @@ import {
 import { Logo } from "./logo";
 import { LanguageSelector } from "./language-selector";
 
-import { defaultStructures } from "@/config/tournament";
-import { generateBlindLevels } from "@/utils/helpers";
+import {
+  DEFAULT_STRUCTURE,
+  buildStructure,
+  deduceStructure,
+  isStructureName,
+  structureDuration,
+  type StructureName,
+} from "@/utils/structures";
 import { useI18n } from "@/hooks";
 
 interface ConfigFormProps {
@@ -27,6 +33,30 @@ interface ConfigFormProps {
   // O torneio salvo era inválido e foi descartado.
   savedTournamentLost?: boolean;
 }
+
+type Draft = Omit<TournamentConfig, "blindStructure" | "structure"> & {
+  structure: StructureName;
+};
+
+const toDraft = (config?: TournamentConfig): Draft => {
+  if (!config) {
+    return {
+      name: "Torneio Pomer",
+      levelDuration: structureDuration(DEFAULT_STRUCTURE),
+      breakInterval: 3,
+      breakDuration: 10,
+      structure: DEFAULT_STRUCTURE,
+      primaryColor: "#006FEE",
+    };
+  }
+
+  const { blindStructure, structure, ...rest } = config;
+
+  return {
+    ...rest,
+    structure: structure ?? deduceStructure(blindStructure),
+  };
+};
 
 const getStructureOptions = (t: (key: any) => string) => [
   { key: "small", label: t("structureSmall") },
@@ -59,72 +89,22 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
-  const [config, setConfig] = useState<TournamentConfig>(
-    initialConfig || {
-      name: "Torneio Pomer",
-      levelDuration: 20,
-      breakInterval: 3,
-      breakDuration: 10,
-      blindStructure: defaultStructures.medium,
-      primaryColor: "#006FEE",
-    },
-  );
+  // O que o organizador escolheu e digitou. A configuração do torneio, com os
+  // níveis, só é montada ao iniciar.
+  const [draft, setDraft] = useState<Draft>(() => toDraft(initialConfig));
+  const { structure, primaryColor: selectedColor } = draft;
+  const preview = buildStructure(structure, draft.levelDuration);
 
-  const [selectedStructure, setSelectedStructure] = useState("medium");
-  const [selectedColor, setSelectedColor] = useState("#006FEE");
+  const update = (changes: Partial<Draft>) =>
+    setDraft((prev) => ({ ...prev, ...changes }));
 
-  // Atualizar estrutura quando a duração mudar
-  useEffect(() => {
-    setConfig((prev) => {
-      const structure =
-        defaultStructures[selectedStructure as keyof typeof defaultStructures];
-      const startBlind = structure[0]?.smallBlind || 50;
-      const levels = structure.length;
-      const newStructure = generateBlindLevels(
-        startBlind,
-        levels,
-        prev.levelDuration,
-      );
-
-      return {
-        ...prev,
-        blindStructure: newStructure,
-      };
-    });
-  }, [config.levelDuration, selectedStructure]);
-
-  // Atualizar cor quando selecionada
-  useEffect(() => {
-    setConfig((prev) => ({
-      ...prev,
-      primaryColor: selectedColor,
-    }));
-  }, [selectedColor]);
-
-  const handleStructureChange = (value: string) => {
-    setSelectedStructure(value);
-    setConfig((prev) => {
-      const structure =
-        defaultStructures[value as keyof typeof defaultStructures];
-      // Regenerar a estrutura com a duração atual configurada
-      const startBlind = structure[0]?.smallBlind || 50;
-      const levels = structure.length;
-      const newStructure = generateBlindLevels(
-        startBlind,
-        levels,
-        prev.levelDuration,
-      );
-
-      return {
-        ...prev,
-        blindStructure: newStructure,
-      };
-    });
-  };
+  // Cada estrutura traz a própria duração e sobrescreve a que estava digitada.
+  const handleStructureChange = (name: StructureName) =>
+    update({ structure: name, levelDuration: structureDuration(name) });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStart(config);
+    onStart({ ...draft, blindStructure: preview });
   };
 
   return (
@@ -158,9 +138,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               <Input
                 variant="secondary"
                 placeholder={t("tournamentNameLabel")}
-                value={config.name}
+                value={draft.name}
                 onChange={(e) =>
-                  setConfig((prev) => ({ ...prev, name: e.target.value }))
+                  update({ name: e.target.value })
                 }
               />
             </TextField>
@@ -172,12 +152,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="60"
                   min="1"
-                  value={config.levelDuration.toString()}
+                  value={draft.levelDuration.toString()}
                   onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      levelDuration: parseInt(e.target.value) || 20,
-                    }))
+                    update({ levelDuration: parseInt(e.target.value) || 20 })
                   }
                 />
               </TextField>
@@ -188,12 +165,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="10"
                   min="1"
-                  value={config.breakInterval.toString()}
+                  value={draft.breakInterval.toString()}
                   onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      breakInterval: parseInt(e.target.value) || 3,
-                    }))
+                    update({ breakInterval: parseInt(e.target.value) || 3 })
                   }
                 />
               </TextField>
@@ -204,12 +178,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="30"
                   min="1"
-                  value={config.breakDuration.toString()}
+                  value={draft.breakDuration.toString()}
                   onChange={(e) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      breakDuration: parseInt(e.target.value) || 10,
-                    }))
+                    update({ breakDuration: parseInt(e.target.value) || 10 })
                   }
                 />
               </TextField>
@@ -240,7 +211,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                           : undefined,
                     }}
                     type="button"
-                    onClick={() => setSelectedColor(option.key)}
+                    onClick={() => update({ primaryColor: option.key })}
                   >
                     <div
                       className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
@@ -297,10 +268,10 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
             <Select
               variant="secondary"
               placeholder={t("selectStructurePlaceholder" as any)}
-              value={selectedStructure}
+              value={structure}
               onChange={(key) => {
-                if (key) {
-                  handleStructureChange(String(key));
+                if (isStructureName(key)) {
+                  handleStructureChange(key);
                 }
               }}
             >
@@ -332,7 +303,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 {t("structurePreview")}
               </h3>
               <div className="grid grid-cols-1 gap-2">
-                {config.blindStructure.slice(0, 3).map((level) => (
+                {preview.slice(0, 3).map((level) => (
                   <div
                     key={level.level}
                     className="flex justify-between items-center p-2 bg-surface-secondary rounded-lg"
@@ -351,9 +322,9 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                     </span>
                   </div>
                 ))}
-                {config.blindStructure.length > 3 && (
+                {preview.length > 3 && (
                   <p className="text-center text-muted text-sm">
-                    ... {t("andMore")} {config.blindStructure.length - 3}{" "}
+                    ... {t("andMore")} {preview.length - 3}{" "}
                     {t("levels")}
                   </p>
                 )}
