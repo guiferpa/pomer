@@ -51,12 +51,7 @@ O Pomer já está configurado para rastrear:
 - ✅ **tournament_reset** - Quando o torneio é resetado
 - ✅ **level_skipped** - Quando um nível é pulado
 
-### Eventos Futuros (podem ser adicionados):
-- 🔄 **level_completed** - Quando um nível é completado automaticamente
-- 🔄 **color_changed** - Quando a cor do tema é alterada
-- 🔄 **theme_changed** - Quando o tema claro/escuro é alterado
-- 🔄 **language_changed** - Quando o idioma é alterado
-- 🔄 **structure_changed** - Quando a estrutura de blinds é alterada
+Só esses 5 eventos estão definidos.
 
 ## 🎯 Métricas Importantes
 
@@ -72,14 +67,7 @@ Com o Google Analytics, você poderá acompanhar:
 
 ## 🔧 Personalização
 
-Para adicionar um novo evento, inclua o nome em `ANALYTICS_EVENTS` (`src/utils/analytics.ts`) e envie com `trackEvent`:
-
-```typescript
-import { trackEvent } from "@/utils/analytics";
-
-// Exemplo: rastrear mudança de cor
-trackEvent("color_changed", "blue");
-```
+Para adicionar um novo evento, inclua o nome em `ANALYTICS_EVENTS` (`src/utils/analytics.ts`) e envie com `trackEvent(evento, rótulo)`, no mesmo formato dos eventos que já existem. O TypeScript recusa nomes que não estejam na lista.
 
 ## 📱 Testando
 
