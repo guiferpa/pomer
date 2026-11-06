@@ -124,7 +124,6 @@ describe("useTournament", () => {
       "history",
       "isBreak",
       "isRunning",
-      "pausedTimeRemaining",
       "startTime",
       "timeRemaining",
     ]);
@@ -839,7 +838,7 @@ describe("tournaments saved by older versions", () => {
     expect(savedLevels()).toEqual([1]);
   });
 
-  const paused = { isRunning: false, timeRemaining: 40, pausedTimeRemaining: 40 };
+  const paused = { isRunning: false, timeRemaining: 40 };
   const twoFinished = () => [finished(1, 3), finished(2, 1)];
 
   it.each<[string, () => Record<string, unknown>]>([
@@ -1087,9 +1086,9 @@ describe.each([
 
   it.each([
     ["a level running", { currentLevel: 3 }],
-    ["a level paused", { currentLevel: 3, isRunning: false, pausedTimeRemaining: 30 }],
+    ["a level paused", { currentLevel: 3, isRunning: false, timeRemaining: 30 }],
     ["a break running", { isBreak: true }],
-    ["a break paused", { isBreak: true, isRunning: false, pausedTimeRemaining: 30 }],
+    ["a break paused", { isBreak: true, isRunning: false, timeRemaining: 30 }],
     ["the last level", { config: cfg(3, 10), currentLevel: 3 }],
   ])("stays silent on a refresh during %s", (_situation, over) => {
     seed(over);
@@ -1301,7 +1300,6 @@ describe("back from an absence", () => {
         startTime: minutesAgo(600),
         isRunning: false,
         timeRemaining: 120,
-        pausedTimeRemaining: 120,
       });
       render(<App />);
       expect(screen.getByText("Nível 1")).toBeTruthy();
@@ -1484,7 +1482,6 @@ describe("back from an absence", () => {
         startTime: minutesAgo(600),
         isRunning: false,
         timeRemaining: 120,
-        pausedTimeRemaining: 120,
       });
       open();
       tick(5);
@@ -1613,10 +1610,11 @@ describe("refresh", () => {
     });
     render(<App />);
     shows("20:00");
-    expect(saved().pausedTimeRemaining).toBe(1200);
+    expect("pausedTimeRemaining" in saved()).toBe(false);
     fireEvent.click(button("Retomar"));
     tick(1);
     shows("19:59");
+    expect("pausedTimeRemaining" in saved()).toBe(false);
   });
 
   it("the last level comes back with its time and without skip", () => {

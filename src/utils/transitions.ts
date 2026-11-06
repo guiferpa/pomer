@@ -82,15 +82,12 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
     changes: Pick<TournamentState, "currentLevel" | "isBreak" | "history">,
     durationMinutes: number,
   ): TournamentState => {
-    const timeRemaining = minutesToSeconds(durationMinutes);
-
     return {
       ...state,
       ...changes,
       startTime: at,
-      timeRemaining,
-      // Pausado, o tempo cheio precisa valer ao retomar.
-      ...(state.isRunning ? {} : { pausedTimeRemaining: timeRemaining }),
+      // Pausado, o tempo cheio é o que aparece na tela e vale ao retomar.
+      timeRemaining: minutesToSeconds(durationMinutes),
     };
   };
 
@@ -192,6 +189,31 @@ export const skipLevel = (
   return { state: next, transitioned: next !== state };
 };
 
+// O organizador pausou ou retomou o torneio. Pausado, vale o tempo da tela.
+// Retomar conta a partir desse tempo, em níveis e intervalos.
+export const togglePause = (
+  state: TournamentState,
+  now: Date,
+): TournamentState => {
+  // Em 00:00 o torneio segue rodando, o que mantém a tela ligada. Sem estrutura
+  // de blinds não há torneio para pausar ou retomar.
+  if (isTimeUp(state) || !state.config.blindStructure[state.currentLevel - 1]) {
+    return state;
+  }
+
+  if (state.isRunning) return { ...state, isRunning: false };
+
+  return {
+    ...state,
+    isRunning: true,
+    startTime: startTimeFor(
+      now,
+      currentDurationMinutes(state),
+      state.timeRemaining,
+    ),
+  };
+};
+
 // Uma entrada por nível, a primeira, e nenhuma do último nível, que nunca termina.
 const repairHistory = ({
   config,
@@ -208,22 +230,29 @@ const repairHistory = ({
   return repaired.length === history.length ? history : repaired;
 };
 
-// Pausado, vale o tempo que o organizador vê na tela. Sem estrutura de blinds não
-// há torneio para retomar.
-const repairPausedTime = (state: TournamentState): TournamentState =>
-  state.isRunning ||
-  state.config.blindStructure.length === 0 ||
-  state.pausedTimeRemaining === state.timeRemaining
-    ? state
-    : { ...state, pausedTimeRemaining: state.timeRemaining };
+// Versões anteriores guardavam o tempo da pausa em `pausedTimeRemaining`. O
+// campo é ignorado, já que retomar conta a partir do tempo da tela, e sai do
+// estado para sumir na gravação seguinte.
+const dropOldPausedTime = (state: TournamentState): TournamentState => {
+  if (!("pausedTimeRemaining" in state)) return state;
+
+  const repaired: TournamentState & { pausedTimeRemaining?: number } = {
+    ...state,
+  };
+
+  delete repaired.pausedTimeRemaining;
+
+  return repaired;
+};
 
 // Corrige, uma vez ao carregar, o que versões antigas deixaram no estado salvo.
 // Sem esses problemas, devolve o próprio estado recebido, e corrigir de novo um
 // estado já corrigido não muda nada.
 export const repairSavedState = (
-  state: TournamentState,
+  saved: TournamentState,
   now: Date,
 ): TournamentState => {
+  const state = dropOldPausedTime(saved);
   const { blindStructure } = state.config;
   const history = repairHistory(state);
 
@@ -235,7 +264,6 @@ export const repairSavedState = (
       // Em 00:00 o torneio segue rodando, mesmo que o intervalo estivesse pausado.
       isRunning: true,
       timeRemaining: 0,
-      pausedTimeRemaining: undefined,
       // O refresh recalcula o tempo a partir daqui e precisa chegar em zero.
       startTime: startTimeFor(
         now,
@@ -245,7 +273,5 @@ export const repairSavedState = (
     };
   }
 
-  return repairPausedTime(
-    history === state.history ? state : { ...state, history },
-  );
+  return history === state.history ? state : { ...state, history };
 };

@@ -9,6 +9,7 @@ import {
   levelsUntilNextBreak,
   repairSavedState,
   skipLevel,
+  togglePause,
 } from "@/utils/transitions";
 
 const START = new Date("2026-01-01T12:00:00Z");
@@ -42,7 +43,6 @@ const paused = (over: Partial<TournamentState> = {}) =>
   tournament({
     isRunning: false,
     timeRemaining: 300,
-    pausedTimeRemaining: 300,
     ...over,
   });
 
@@ -418,7 +418,73 @@ describe("advanceByTime after an absence", () => {
   });
 });
 
+describe("togglePause", () => {
+  it("pauses a running level keeping the time on screen", () => {
+    const running = tournament({ timeRemaining: 780 });
+    const state = togglePause(running, NOW);
+
+    expect(state.isRunning).toBe(false);
+    expect(state.timeRemaining).toBe(780);
+    expect(state.currentLevel).toBe(1);
+  });
+
+  it("keeps the paused time however long the pause lasts", () => {
+    const state = togglePause(tournament({ timeRemaining: 780 }), NOW);
+    const later = advanceByTime(state, secondsAfterStart(99 * 3600)).state;
+
+    expect(later.timeRemaining).toBe(780);
+  });
+
+  it.each([
+    ["a level", { currentLevel: 2 }],
+    ["a break", { currentLevel: 2, isBreak: true }],
+  ])("resumes %s counting down from the time on screen", (_, over) => {
+    const state = togglePause(paused({ ...over, timeRemaining: 240 }), NOW);
+
+    expect(state.isRunning).toBe(true);
+    expect(state.timeRemaining).toBe(240);
+    expect(state.currentLevel).toBe(2);
+
+    const later = new Date(NOW.getTime() + 1000);
+
+    expect(advanceByTime(state, later).state.timeRemaining).toBe(239);
+  });
+
+  it("does nothing at 00:00 on the last level, which keeps running", () => {
+    const timeUp = tournament({ currentLevel: 4, timeRemaining: 0 });
+
+    expect(togglePause(timeUp, NOW)).toBe(timeUp);
+  });
+
+  it("still pauses the last level while it has time left", () => {
+    const state = togglePause(
+      tournament({ currentLevel: 4, timeRemaining: 30 }),
+      NOW,
+    );
+
+    expect(state.isRunning).toBe(false);
+    expect(state.timeRemaining).toBe(30);
+  });
+
+  it("does nothing on a screen without a tournament", () => {
+    const empty = tournament({
+      config: { ...tournament().config, blindStructure: [] },
+      isRunning: false,
+      timeRemaining: 0,
+      startTime: undefined,
+    });
+
+    expect(togglePause(empty, NOW)).toBe(empty);
+  });
+});
+
 describe("skipLevel while paused", () => {
+  const resumedOneSecondLater = (state: TournamentState) =>
+    advanceByTime(
+      togglePause(state, NOW),
+      new Date(NOW.getTime() + 1000),
+    ).state.timeRemaining;
+
   it("gives the next level its full time and stays paused", () => {
     const { state, transitioned } = skipLevel(paused(), NOW);
 
@@ -426,12 +492,12 @@ describe("skipLevel while paused", () => {
     expect(state.currentLevel).toBe(2);
     expect(state.isRunning).toBe(false);
     expect(state.timeRemaining).toBe(900);
-    expect(state.pausedTimeRemaining).toBe(900);
+    expect(resumedOneSecondLater(state)).toBe(899);
   });
 
   it("enters a due break with the break's own length, never the paused time", () => {
     const { state, transitioned } = skipLevel(
-      paused({ currentLevel: 2, timeRemaining: 800, pausedTimeRemaining: 800 }),
+      paused({ currentLevel: 2, timeRemaining: 800 }),
       NOW,
     );
 
@@ -440,7 +506,7 @@ describe("skipLevel while paused", () => {
     expect(state.currentLevel).toBe(2);
     expect(state.isRunning).toBe(false);
     expect(state.timeRemaining).toBe(300);
-    expect(state.pausedTimeRemaining).toBe(300);
+    expect(resumedOneSecondLater(state)).toBe(299);
   });
 
   it("leaves a break into the next level with its full time and stays paused", () => {
@@ -453,12 +519,12 @@ describe("skipLevel while paused", () => {
     expect(state.currentLevel).toBe(3);
     expect(state.isRunning).toBe(false);
     expect(state.timeRemaining).toBe(600);
-    expect(state.pausedTimeRemaining).toBe(600);
+    expect(resumedOneSecondLater(state)).toBe(599);
   });
 });
 
 describe("skipLevel while running", () => {
-  it("gives the next level its full time without creating a paused time", () => {
+  it("gives the next level its full time", () => {
     const { state, transitioned } = skipLevel(tournament(), NOW);
 
     expect(transitioned).toBe(true);
@@ -466,7 +532,6 @@ describe("skipLevel while running", () => {
     expect(state.isRunning).toBe(true);
     expect(state.timeRemaining).toBe(900);
     expect(state.startTime).toEqual(NOW);
-    expect(state.pausedTimeRemaining).toBeUndefined();
   });
 
   it("enters a due break with the break's full time", () => {
@@ -598,13 +663,15 @@ describe("repairSavedState", () => {
     duration: 20,
   });
   const leftover = () =>
-    tournament({
-      currentLevel: 4,
-      isBreak: true,
-      isRunning: false,
-      pausedTimeRemaining: 30,
-      history: [entry(1), entry(1), entry(4)],
-    });
+    withOldPausedTime(
+      tournament({
+        currentLevel: 4,
+        isBreak: true,
+        isRunning: false,
+        history: [entry(1), entry(1), entry(4)],
+      }),
+      30,
+    );
 
   it("returns the very same state when there is nothing to correct", () => {
     const clean = tournament({ currentLevel: 2, history: [entry(1)] });
@@ -612,32 +679,36 @@ describe("repairSavedState", () => {
     expect(repairSavedState(clean, NOW)).toBe(clean);
   });
 
-  it.each([
-    ["a different time", 299],
-    ["no time at all", undefined],
-  ])("makes a paused state with %s resume from the time on screen", (_, stale) => {
-    const repaired = repairSavedState(
-      paused({ timeRemaining: 1200, pausedTimeRemaining: stale }),
-      NOW,
-    );
+  // Versões anteriores guardavam o tempo da pausa em um campo à parte.
+  const withOldPausedTime = (
+    state: TournamentState,
+    pausedTimeRemaining: number,
+  ): TournamentState =>
+    ({ ...state, pausedTimeRemaining }) as TournamentState;
 
-    expect(repaired.timeRemaining).toBe(1200);
-    expect(repaired.pausedTimeRemaining).toBe(1200);
+  it.each([
+    ["paused", paused({ timeRemaining: 1200 })],
+    ["running", tournament()],
+  ])("drops the old paused time of a %s state, keeping the time on screen", (_, state) => {
+    const repaired = repairSavedState(withOldPausedTime(state, 299), NOW);
+
+    expect(repaired).toEqual(state);
+    expect("pausedTimeRemaining" in repaired).toBe(false);
   });
 
-  it("keeps the correction of a stale pause idempotent", () => {
+  it("keeps dropping the old paused time idempotent", () => {
     const once = repairSavedState(
-      paused({ timeRemaining: 1200, pausedTimeRemaining: 299 }),
+      withOldPausedTime(paused({ timeRemaining: 1200 }), 299),
       NOW,
     );
 
     expect(repairSavedState(once, NOW)).toBe(once);
   });
 
-  it("leaves a running state's missing paused time alone", () => {
-    const running = tournament();
+  it("leaves a paused state without the old field alone", () => {
+    const clean = paused({ timeRemaining: 1200 });
 
-    expect(repairSavedState(running, NOW)).toBe(running);
+    expect(repairSavedState(clean, NOW)).toBe(clean);
   });
 
   it("leaves a screen without a tournament alone", () => {

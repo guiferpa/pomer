@@ -28,7 +28,6 @@ export interface TournamentState {
   isBreak: boolean;
   history: LevelHistory[];
   startTime?: Date;
-  pausedTimeRemaining?: number; // segundos - tempo restante quando pausado
 }
 
 export interface LevelHistory {
