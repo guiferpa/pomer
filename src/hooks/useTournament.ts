@@ -11,11 +11,9 @@ import { useAudio } from "./useAudio";
 import { minutesToSeconds } from "@/utils/helpers";
 import {
   advanceByTime,
-  currentDurationMinutes,
-  isTimeUp,
   levelDurationMinutes,
   skipLevel,
-  startTimeFor,
+  togglePause,
   type TransitionResult,
 } from "@/utils/transitions";
 import { loadTournament, saveTournament } from "@/utils/persistence";
@@ -143,40 +141,10 @@ export const useTournament = () => {
   );
 
   // Pausar/Retomar torneio
-  const toggleTournament = useCallback(() => {
-    changeState((prevState) => {
-      // Em 00:00 o torneio segue rodando, o que mantém a tela ligada.
-      if (isTimeUp(prevState)) return prevState;
-
-      if (prevState.isRunning) {
-        // Pausando - salvar o tempo restante atual
-        return {
-          ...prevState,
-          isRunning: false,
-          pausedTimeRemaining: prevState.timeRemaining,
-        };
-      } else {
-        // Retomando - recalcular o startTime baseado no tempo pausado
-        const currentLevelData =
-          prevState.config.blindStructure[prevState.currentLevel - 1];
-
-        if (!currentLevelData) return prevState;
-
-        const newStartTime = startTimeFor(
-          new Date(),
-          currentDurationMinutes(prevState),
-          prevState.pausedTimeRemaining || 0,
-        );
-
-        return {
-          ...prevState,
-          isRunning: true,
-          startTime: newStartTime,
-          pausedTimeRemaining: undefined,
-        };
-      }
-    });
-  }, [changeState]);
+  const toggleTournament = useCallback(
+    () => changeState((current) => togglePause(current, new Date())),
+    [changeState],
+  );
 
   // Pular para próximo nível
   const nextLevel = useCallback(() => runTransition(skipLevel), [runTransition]);

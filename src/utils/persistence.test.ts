@@ -130,7 +130,11 @@ describe("loadTournament", () => {
 
 describe("saveTournament", () => {
   it("saves a tournament that comes back the same", () => {
-    const state = tournament({ currentLevel: 2, timeRemaining: 800 });
+    const state = tournament({
+      currentLevel: 2,
+      timeRemaining: 800,
+      isRunning: false,
+    });
 
     saveTournament(state);
 
