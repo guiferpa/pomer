@@ -5,6 +5,7 @@ import type {
 } from "@/types/tournament";
 
 import { repairSavedState } from "@/utils/transitions";
+import { deduceStructure, isStructureName } from "@/utils/structures";
 
 // Único lugar que lê e grava o torneio e a última configuração. O tema e o
 // idioma ficam com quem cuida deles.
@@ -96,7 +97,11 @@ export const saveTournament = (state: TournamentState): void => {
   }
 };
 
-const isConfig = (parsed: unknown): parsed is TournamentConfig =>
+// O nome da estrutura é opcional na leitura: configurações antigas não o
+// guardavam, e ele é deduzido depois.
+const isConfig = (
+  parsed: unknown,
+): parsed is Omit<TournamentConfig, "structure"> & { structure?: unknown } =>
   isObject(parsed) &&
   typeof parsed.name === "string" &&
   isNumber(parsed.levelDuration) &&
@@ -105,13 +110,17 @@ const isConfig = (parsed: unknown): parsed is TournamentConfig =>
   typeof parsed.primaryColor === "string" &&
   hasUsableLevels(parsed.blindStructure);
 
-// A última configuração usada, para preencher o formulário. Inválida, é ignorada
-// e o formulário usa os valores padrão.
+// A última configuração usada, para preencher o formulário, sempre com o nome da
+// estrutura. Inválida, é ignorada e o formulário usa os valores padrão.
 export const loadConfig = (): TournamentConfig | null => {
   const raw = localStorage.getItem(CONFIG_KEY);
   const parsed = raw === null ? null : parse(raw);
 
-  return isConfig(parsed) ? parsed : null;
+  if (!isConfig(parsed)) return null;
+
+  return isStructureName(parsed.structure)
+    ? { ...parsed, structure: parsed.structure }
+    : { ...parsed, structure: deduceStructure(parsed.blindStructure) };
 };
 
 export const saveConfig = (config: TournamentConfig): void => {

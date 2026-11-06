@@ -1,3 +1,5 @@
+import type { StructureName } from "@/utils/structures";
+
 export interface BlindLevel {
   level: number;
   smallBlind: number;
@@ -10,6 +12,10 @@ export interface TournamentConfig {
   levelDuration: number; // minutos
   breakInterval: number; // a cada quantos níveis
   breakDuration: number; // minutos
+  // Estrutura escolhida no formulário. Os níveis em `blindStructure` valem para
+  // o torneio; o nome serve para o formulário voltar como foi deixado. Falta em
+  // configurações e torneios gravados por versões antigas.
+  structure?: StructureName;
   blindStructure: BlindLevel[];
   primaryColor: string; // cor primária personalizada
 }

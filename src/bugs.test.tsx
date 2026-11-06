@@ -9,7 +9,7 @@ import { ConfigForm } from "@/components/form-config";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { useTournament } from "@/hooks/useTournament";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { generateBlindLevels } from "@/utils/helpers";
+import { blindLevels, buildStructure } from "@/utils/structures";
 
 const KEY = "pomer-tournament-state";
 let plays = 0;
@@ -19,7 +19,7 @@ const cfg = (levels: number, breakInterval: number, duration = 1, breakDuration 
   levelDuration: duration,
   breakInterval,
   breakDuration,
-  blindStructure: generateBlindLevels(25, levels, duration),
+  blindStructure: blindLevels(25, levels, duration),
   primaryColor: "#FF6B6B",
 });
 
@@ -167,9 +167,9 @@ describe("useTournament", () => {
   });
 });
 
-describe("generateBlindLevels", () => {
-  it.fails("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
-    const s = generateBlindLevels(100, 25, 20);
+describe("blind structures", () => {
+  it("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
+    const s = buildStructure("large", 20);
     const jumps = s.slice(1).map((l, i) => l.smallBlind / s[i].smallBlind);
     expect(Math.max(...jumps)).toBeLessThanOrEqual(2);
   });
@@ -338,7 +338,7 @@ describe("ConfigForm", () => {
       </I18nProvider>,
     );
 
-  it.fails("T15 keeps the saved colour and structure when reopened", () => {
+  it("T15 keeps the saved colour and structure when reopened", () => {
     const onStart = vi.fn();
     const { container } = renderForm(onStart, saved());
     fireEvent.submit(container.querySelector("form")!);
@@ -348,6 +348,14 @@ describe("ConfigForm", () => {
   });
 
   const structureSelect = () => screen.getByRole("button", { name: /Estrutura de Blinds/ });
+  const durationField = () =>
+    screen.getByRole("spinbutton", { name: /Duração dos Níveis/ }) as HTMLInputElement;
+  const typeDuration = (value: string) =>
+    fireEvent.change(durationField(), { target: { value } });
+  const lastConfig = () => JSON.parse(localStorage.getItem("pomer-config")!);
+  const startedConfig = () => JSON.parse(localStorage.getItem(KEY)!).config;
+  const submit = (container: HTMLElement) =>
+    fireEvent.submit(container.querySelector("form")!);
 
   // Waits for the list to close, which proves the Select handled the choice.
   const chooseStructure = async (name: RegExp) => {
@@ -366,16 +374,118 @@ describe("ConfigForm", () => {
     return onStart.mock.calls[0][0];
   };
 
-  // C6 guards T16: `it.fails` accepts any failure, so a broken selector could
-  // otherwise pass for bug 6.
+  // C6 shows the selector reaches Turbo, so a failing T16 points at bug 6.
   it("C6 choosing Turbo yields its 12 levels", async () => {
     const got = await submitAfterChoosing(/Turbo/);
     expect(got.blindStructure.length).toBe(12);
   });
 
-  it.fails("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
+  it("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
     const got = await submitAfterChoosing(/Turbo/);
     expect(got.blindStructure[0].duration).toBe(10);
+  });
+
+  it("choosing a structure fills the level duration with its own", async () => {
+    vi.useRealTimers();
+    renderForm(vi.fn());
+    expect(durationField().value).toBe("20");
+    await chooseStructure(/Turbo/);
+    expect(durationField().value).toBe("10");
+    await chooseStructure(/Grande/);
+    expect(durationField().value).toBe("20");
+  });
+
+  it("switching structure overwrites the duration typed before", async () => {
+    vi.useRealTimers();
+    renderForm(vi.fn());
+    typeDuration("45");
+    await chooseStructure(/Turbo/);
+    expect(durationField().value).toBe("10");
+  });
+
+  it("the duration typed after choosing the structure is the one the tournament uses", async () => {
+    vi.useRealTimers();
+    const onStart = vi.fn();
+    const { container } = renderForm(onStart);
+    await chooseStructure(/Turbo/);
+    typeDuration("7");
+    submit(container);
+    const got = onStart.mock.calls[0][0];
+    expect(got.structure).toBe("turbo");
+    expect(got.levelDuration).toBe(7);
+    expect(got.blindStructure.length).toBe(12);
+    expect(got.blindStructure.every((l: { duration: number }) => l.duration === 7)).toBe(true);
+  });
+
+  it("the last configuration keeps the structure name", async () => {
+    vi.useRealTimers();
+    const { container } = render(<App />);
+    await chooseStructure(/Pequeno/);
+    submit(container);
+    expect(lastConfig().structure).toBe("small");
+    expect(startedConfig().blindStructure.length).toBe(15);
+  });
+
+  it("after a reset the form comes back with the structure, duration and colour left", async () => {
+    vi.useRealTimers();
+    const view = render(<App />);
+    await chooseStructure(/Turbo/);
+    typeDuration("15");
+    fireEvent.click(screen.getByRole("button", { name: /Vermelho/ }));
+    submit(view.container);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+
+    const reopened = () => {
+      expect(structureSelect().textContent).toContain("Turbo");
+      expect(durationField().value).toBe("15");
+      submit(document.body);
+      expect(startedConfig().primaryColor).toBe("#FF6B6B");
+      expect(startedConfig().blindStructure.length).toBe(12);
+      expect(startedConfig().blindStructure[0].duration).toBe(15);
+    };
+
+    reopened();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
+    cleanup();
+    render(<App />);
+    reopened();
+  });
+
+  it.each<[string, number, number, string, number]>([
+    ["turbo", 12, 25, "Turbo", 12],
+    ["large", 25, 100, "Grande", 25],
+    ["small", 15, 25, "Pequeno", 15],
+    ["no", 9, 30, "Médio", 20],
+  ])(
+    "an older configuration with %s levels opens on the deduced structure, keeping its duration",
+    (_, levels, firstBlind, label, startedLevels) => {
+      localStorage.setItem(
+        "pomer-config",
+        JSON.stringify({
+          ...cfg(levels, 3, 15, 5),
+          blindStructure: blindLevels(firstBlind, levels, 15),
+        }),
+      );
+      const { container } = render(<App />);
+      expect(structureSelect().textContent).toContain(label);
+      expect(durationField().value).toBe("15");
+      submit(container);
+      expect(startedConfig().blindStructure.length).toBe(startedLevels);
+      expect(startedConfig().primaryColor).toBe("#FF6B6B");
+    },
+  );
+
+  it("a tournament already started keeps the levels it saved", () => {
+    const old = buildStructure("large", 1).map((level, i) =>
+      i < 20 ? level : { ...level, smallBlind: 332526, bigBlind: 665052 },
+    );
+    seed({ config: { ...cfg(25, 30), blindStructure: old }, currentLevel: 21 });
+    render(<App />);
+    expect(screen.getAllByText("332.5k").length).toBeGreaterThan(0);
+    tick(5);
+    expect(JSON.parse(localStorage.getItem(KEY)!).config.blindStructure).toEqual(old);
   });
 
   it("T18 re-clicking the already selected structure does not crash the form", async () => {

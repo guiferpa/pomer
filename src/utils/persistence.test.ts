@@ -8,6 +8,7 @@ import {
   saveConfig,
   saveTournament,
 } from "@/utils/persistence";
+import { blindLevels, buildStructure } from "@/utils/structures";
 
 const TOURNAMENT_KEY = "pomer-tournament-state";
 const CONFIG_KEY = "pomer-config";
@@ -19,6 +20,7 @@ const config = (over: Partial<TournamentConfig> = {}): TournamentConfig => ({
   breakInterval: 2,
   breakDuration: 5,
   primaryColor: "#FF6B6B",
+  structure: "turbo",
   blindStructure: [
     { level: 1, smallBlind: 25, bigBlind: 50, duration: 20 },
     { level: 2, smallBlind: 50, bigBlind: 100, duration: 20 },
@@ -182,6 +184,26 @@ describe("last configuration", () => {
     localStorage.setItem(CONFIG_KEY, raw);
 
     expect(loadConfig()).toBeNull();
+  });
+
+  it("keeps the structure name it was saved with", () => {
+    saveConfig(config({ structure: "large" }));
+
+    expect(loadConfig()?.structure).toBe("large");
+  });
+
+  it.each<[string, Record<string, unknown>, string]>([
+    ["turbo levels", { blindStructure: buildStructure("turbo", 10) }, "turbo"],
+    ["small levels", { blindStructure: buildStructure("small", 15) }, "small"],
+    ["large levels", { blindStructure: buildStructure("large", 20) }, "large"],
+    ["levels of no structure", { blindStructure: blindLevels(30, 9, 20) }, "medium"],
+    ["an unknown name", { structure: "huge", blindStructure: buildStructure("small", 20) }, "small"],
+  ])("deduces the structure of an older configuration with %s", (_, over, name) => {
+    const { structure: _structure, ...older } = config();
+
+    localStorage.setItem(CONFIG_KEY, JSON.stringify({ ...older, ...over }));
+
+    expect(loadConfig()).toEqual({ ...older, ...over, structure: name });
   });
 
   it("survives a reset of the tournament", () => {
