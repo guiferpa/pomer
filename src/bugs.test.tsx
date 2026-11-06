@@ -1262,7 +1262,7 @@ describe("analytics", () => {
     const { container } = render(<App />);
     fireEvent.submit(container.querySelector("form")!);
     expect(events()).toEqual([
-      ["event", "tournament_started", expect.objectContaining({ event_category: "Tournament", event_label: "Torneio Pomer" })],
+      ["event", "tournament_started", { event_category: "Tournament", event_label: "Torneio Pomer" }],
     ]);
   });
 
@@ -1272,9 +1272,10 @@ describe("analytics", () => {
     render(<App />);
     fireEvent.click(button("Pausar"));
     fireEvent.click(button("Retomar"));
-    expect(events().map((c) => [c[1], c[2].event_category])).toEqual([
-      ["tournament_paused", "Tournament"],
-      ["tournament_resumed", "Tournament"],
+    // Como na main: categoria "Tournament" e nenhum rótulo.
+    expect(events().map((c) => [c[1], c[2].event_category, c[2].event_label])).toEqual([
+      ["tournament_paused", "Tournament", undefined],
+      ["tournament_resumed", "Tournament", undefined],
     ]);
   });
 
@@ -1284,7 +1285,7 @@ describe("analytics", () => {
     render(<App />);
     fireEvent.click(button("Próximo Nível"));
     expect(events()).toEqual([
-      ["event", "level_skipped", expect.objectContaining({ event_category: "Tournament", event_label: "Level 1" })],
+      ["event", "level_skipped", { event_category: "Tournament", event_label: "Level 1" }],
     ]);
   });
 
@@ -1294,8 +1295,8 @@ describe("analytics", () => {
     render(<App />);
     fireEvent.click(button("Reset"));
     fireEvent.click(button("Resetar"));
-    expect(events().map((c) => [c[1], c[2].event_category])).toEqual([
-      ["tournament_reset", "Tournament"],
+    expect(events().map((c) => [c[1], c[2].event_category, c[2].event_label])).toEqual([
+      ["tournament_reset", "Tournament", undefined],
     ]);
   });
 
