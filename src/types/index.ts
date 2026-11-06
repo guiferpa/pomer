@@ -12,7 +12,3 @@ export interface WakeLockSentinel extends EventTarget {
   addEventListener(type: 'release', listener: () => void): void;
   removeEventListener(type: 'release', listener: () => void): void;
 }
-
-export interface WakeLock {
-  request(type: 'screen'): Promise<WakeLockSentinel>;
-}

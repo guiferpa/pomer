@@ -1,8 +1,4 @@
-import type {
-  TournamentState,
-  TournamentConfig,
-  BreakInfo,
-} from "@/types/tournament";
+import type { TournamentState, TournamentConfig } from "@/types/tournament";
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -167,25 +163,12 @@ export const useTournament = () => {
     }));
   }, [changeState]);
 
-  // Obter informações do break
-  const getBreakInfo = useCallback((): BreakInfo => {
-    // const needsBreak = shouldTakeBreak(state.currentLevel, state.config.breakInterval);
-    // const levelsUntilBreak = state.config.breakInterval - (state.currentLevel % state.config.breakInterval);
-
-    return {
-      isBreak: state.isBreak,
-      breakTimeRemaining: state.isBreak ? state.timeRemaining : 0,
-      nextLevel: state.isBreak ? state.currentLevel + 1 : state.currentLevel,
-    };
-  }, [state]);
-
   return {
     state,
     startTournament,
     toggleTournament,
     nextLevel,
     resetTournament,
-    getBreakInfo,
     savedTournamentLost: loaded.result.status === "invalid",
   };
 };

@@ -38,9 +38,3 @@ export interface LevelHistory {
   endTime: Date;
   duration: number;
 }
-
-export interface BreakInfo {
-  isBreak: boolean;
-  breakTimeRemaining: number; // segundos
-  nextLevel: number;
-}
