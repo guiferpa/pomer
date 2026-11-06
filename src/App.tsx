@@ -2,7 +2,8 @@ import type { TournamentConfig } from "@/types/tournament";
 
 import { useEffect, useState } from "react";
 
-import { useTournament, useAnalytics } from "@/hooks";
+import { useTournament } from "@/hooks";
+import { trackEvent } from "@/utils/analytics";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { loadConfig, saveConfig } from "@/utils/persistence";
@@ -21,8 +22,6 @@ function App() {
 
   // O aviso vale só até o organizador começar outro torneio, e nunca é gravado.
   const [showLostWarning, setShowLostWarning] = useState(savedTournamentLost);
-
-  const { trackEvent } = useAnalytics();
 
   // Verificar se o torneio está configurado e válido
   const isConfigured = state.config.blindStructure.length > 0 && 
@@ -44,12 +43,12 @@ function App() {
     setSavedConfig(config);
     setShowLostWarning(false);
     startTournament(config);
-    trackEvent("tournament_started", "Tournament", config.name);
+    trackEvent("tournament_started", config.name);
   };
 
   const handleReset = () => {
     resetTournament();
-    trackEvent("tournament_reset", "Tournament");
+    trackEvent("tournament_reset");
   };
 
   return (

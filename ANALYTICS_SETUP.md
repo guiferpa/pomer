@@ -19,12 +19,7 @@ Após criar a propriedade, você receberá um ID no formato `G-XXXXXXXXXX`
 
 ### 3. Configurar no Projeto
 
-Substitua `G-XXXXXXXXXX` pelos seguintes arquivos:
-
-#### `src/hooks/useAnalytics.ts` (linha 5):
-```typescript
-const GA_MEASUREMENT_ID = 'G-SEU_ID_AQUI';
-```
+Substitua `G-XXXXXXXXXX` no `index.html`, o único lugar que registra a visualização de página:
 
 #### `index.html` (linhas 25 e 30):
 ```html
@@ -77,15 +72,13 @@ Com o Google Analytics, você poderá acompanhar:
 
 ## 🔧 Personalização
 
-Para adicionar novos eventos, use o hook `useAnalytics`:
+Para adicionar um novo evento, inclua o nome em `ANALYTICS_EVENTS` (`src/utils/analytics.ts`) e envie com `trackEvent`:
 
 ```typescript
-import { useAnalytics } from "@/hooks";
-
-const { trackEvent } = useAnalytics();
+import { trackEvent } from "@/utils/analytics";
 
 // Exemplo: rastrear mudança de cor
-trackEvent("color_changed", "UI", "blue");
+trackEvent("color_changed", "blue");
 ```
 
 ## 📱 Testando
