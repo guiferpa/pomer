@@ -499,7 +499,7 @@ describe("ConfigForm", () => {
     expect(onStart.mock.calls[0][0].blindStructure.length).toBe(20);
   });
 
-  it.fails("T17 a number field can be cleared while typing", () => {
+  it("T17 a number field can be cleared while typing", () => {
     renderForm(vi.fn());
     const [duration] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
     fireEvent.change(duration, { target: { value: "" } });

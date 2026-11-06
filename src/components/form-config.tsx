@@ -34,17 +34,21 @@ interface ConfigFormProps {
   savedTournamentLost?: boolean;
 }
 
-type Draft = Omit<TournamentConfig, "blindStructure" | "structure"> & {
-  structure: StructureName;
-};
+// Os campos numéricos guardam o texto digitado, que só vira número ao iniciar.
+type NumberField = "levelDuration" | "breakInterval" | "breakDuration";
+
+type Draft = Omit<TournamentConfig, "blindStructure" | "structure" | NumberField> &
+  Record<NumberField, string> & {
+    structure: StructureName;
+  };
 
 const toDraft = (config?: TournamentConfig): Draft => {
   if (!config) {
     return {
       name: "Torneio Pomer",
-      levelDuration: structureDuration(DEFAULT_STRUCTURE),
-      breakInterval: 3,
-      breakDuration: 10,
+      levelDuration: String(structureDuration(DEFAULT_STRUCTURE)),
+      breakInterval: "3",
+      breakDuration: "10",
       structure: DEFAULT_STRUCTURE,
       primaryColor: "#006FEE",
     };
@@ -54,6 +58,9 @@ const toDraft = (config?: TournamentConfig): Draft => {
 
   return {
     ...rest,
+    levelDuration: String(config.levelDuration),
+    breakInterval: String(config.breakInterval),
+    breakDuration: String(config.breakDuration),
     structure: structure ?? deduceStructure(blindStructure),
   };
 };
@@ -93,18 +100,31 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
   // níveis, só é montada ao iniciar.
   const [draft, setDraft] = useState<Draft>(() => toDraft(initialConfig));
   const { structure, primaryColor: selectedColor } = draft;
-  const preview = buildStructure(structure, draft.levelDuration);
+  // Enquanto a duração está vazia ou inválida, a prévia usa a da estrutura.
+  const previewDuration = Number(draft.levelDuration);
+  const preview = buildStructure(
+    structure,
+    Number.isInteger(previewDuration) && previewDuration > 0
+      ? previewDuration
+      : structureDuration(structure),
+  );
 
   const update = (changes: Partial<Draft>) =>
     setDraft((prev) => ({ ...prev, ...changes }));
 
   // Cada estrutura traz a própria duração e sobrescreve a que estava digitada.
   const handleStructureChange = (name: StructureName) =>
-    update({ structure: name, levelDuration: structureDuration(name) });
+    update({ structure: name, levelDuration: String(structureDuration(name)) });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onStart({ ...draft, blindStructure: preview });
+    onStart({
+      ...draft,
+      levelDuration: Number(draft.levelDuration),
+      breakInterval: Number(draft.breakInterval),
+      breakDuration: Number(draft.breakDuration),
+      blindStructure: preview,
+    });
   };
 
   return (
@@ -152,10 +172,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="60"
                   min="1"
-                  value={draft.levelDuration.toString()}
-                  onChange={(e) =>
-                    update({ levelDuration: parseInt(e.target.value) || 20 })
-                  }
+                  value={draft.levelDuration}
+                  onChange={(e) => update({ levelDuration: e.target.value })}
                 />
               </TextField>
 
@@ -165,10 +183,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="10"
                   min="1"
-                  value={draft.breakInterval.toString()}
-                  onChange={(e) =>
-                    update({ breakInterval: parseInt(e.target.value) || 3 })
-                  }
+                  value={draft.breakInterval}
+                  onChange={(e) => update({ breakInterval: e.target.value })}
                 />
               </TextField>
 
@@ -178,10 +194,8 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   variant="secondary"
                   max="30"
                   min="1"
-                  value={draft.breakDuration.toString()}
-                  onChange={(e) =>
-                    update({ breakDuration: parseInt(e.target.value) || 10 })
-                  }
+                  value={draft.breakDuration}
+                  onChange={(e) => update({ breakDuration: e.target.value })}
                 />
               </TextField>
             </div>
