@@ -2,15 +2,11 @@ export const translations = {
   pt: {
     // App
     appName: "Pomer",
-    tournamentName: "Torneio Pomer",
-    configuration: "Configuração",
 
     // Tournament
-    tournament: "Torneio",
     level: "Nível",
     break: "Intervalo",
     nextLevel: "Próximo Nível",
-    breakInfo: "Break",
     happening: "Acontecendo",
     nextBreakIn: "Próximo break em",
     noMoreBreaks: "Sem mais intervalos",
@@ -28,9 +24,7 @@ export const translations = {
     breakInterval: "Intervalo de Break (níveis)",
     breakDuration: "Duração do Break (min)",
     primaryColor: "Cor Primária",
-    chooseColor: "Escolha uma cor para personalizar o tema do torneio",
     interfaceTheme: "Tema da Interface",
-    chooseTheme: "Escolha entre modo claro ou escuro",
     blindStructure: "Estrutura de Blinds",
     structurePreview: "Prévia da Estrutura:",
     andMore: "e mais",
@@ -56,8 +50,6 @@ export const translations = {
     // Theme
     lightMode: "Modo Claro",
     darkMode: "Modo Escuro",
-    switchToDark: "Mudar para modo escuro",
-    switchToLight: "Mudar para modo claro",
 
     // Colors
     blue: "Azul",
@@ -95,11 +87,7 @@ export const translations = {
 
     // Audio
     soundEffects: "Efeitos Sonoros",
-    enableSounds: "Ativar sons",
-    volume: "Volume",
     testSound: "Testar Som",
-    muted: "Mudo",
-    soundOn: "Som Ligado",
 
     // Persistence
     savedTournamentLost: "Não foi possível recuperar o torneio salvo.",
@@ -112,15 +100,11 @@ export const translations = {
   es: {
     // App
     appName: "Pomer",
-    tournamentName: "Torneo Pomer",
-    configuration: "Configuración",
 
     // Tournament
-    tournament: "Torneo",
     level: "Nivel",
     break: "Descanso",
     nextLevel: "Siguiente Nivel",
-    breakInfo: "Descanso",
     happening: "En curso",
     nextBreakIn: "Próximo descanso en",
     noMoreBreaks: "No hay más descansos",
@@ -138,9 +122,7 @@ export const translations = {
     breakInterval: "Intervalo de Descanso (niveles)",
     breakDuration: "Duración del Descanso (min)",
     primaryColor: "Color Primario",
-    chooseColor: "Elige un color para personalizar el tema del torneo",
     interfaceTheme: "Tema de la Interfaz",
-    chooseTheme: "Elige entre modo claro u oscuro",
     blindStructure: "Estructura de Ciegas",
     structurePreview: "Vista Previa de la Estructura:",
     andMore: "y más",
@@ -166,8 +148,6 @@ export const translations = {
     // Theme
     lightMode: "Modo Claro",
     darkMode: "Modo Oscuro",
-    switchToDark: "Cambiar a modo oscuro",
-    switchToLight: "Cambiar a modo claro",
 
     // Colors
     blue: "Azul",
@@ -205,11 +185,7 @@ export const translations = {
 
     // Audio
     soundEffects: "Efectos de Sonido",
-    enableSounds: "Activar sonidos",
-    volume: "Volumen",
     testSound: "Probar Sonido",
-    muted: "Silenciado",
-    soundOn: "Sonido Activado",
 
     // Persistence
     savedTournamentLost: "No fue posible recuperar el torneo guardado.",
@@ -222,15 +198,11 @@ export const translations = {
   en: {
     // App
     appName: "Pomer",
-    tournamentName: "Pomer Tournament",
-    configuration: "Configuration",
 
     // Tournament
-    tournament: "Tournament",
     level: "Level",
     break: "Break",
     nextLevel: "Next Level",
-    breakInfo: "Break",
     happening: "Happening",
     nextBreakIn: "Next break in",
     noMoreBreaks: "No more breaks",
@@ -248,9 +220,7 @@ export const translations = {
     breakInterval: "Break Interval (levels)",
     breakDuration: "Break Duration (min)",
     primaryColor: "Primary Color",
-    chooseColor: "Choose a color to customize the tournament theme",
     interfaceTheme: "Interface Theme",
-    chooseTheme: "Choose between light or dark mode",
     blindStructure: "Blind Structure",
     structurePreview: "Structure Preview:",
     andMore: "and more",
@@ -276,8 +246,6 @@ export const translations = {
     // Theme
     lightMode: "Light Mode",
     darkMode: "Dark Mode",
-    switchToDark: "Switch to dark mode",
-    switchToLight: "Switch to light mode",
 
     // Colors
     blue: "Blue",
@@ -314,11 +282,7 @@ export const translations = {
 
     // Audio
     soundEffects: "Sound Effects",
-    enableSounds: "Enable sounds",
-    volume: "Volume",
     testSound: "Test Sound",
-    muted: "Muted",
-    soundOn: "Sound On",
 
     // Persistence
     savedTournamentLost: "The saved tournament could not be recovered.",
