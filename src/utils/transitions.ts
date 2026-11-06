@@ -236,7 +236,7 @@ const repairHistory = ({
 const dropOldPausedTime = (state: TournamentState): TournamentState => {
   if (!("pausedTimeRemaining" in state)) return state;
 
-  const repaired: TournamentState & { pausedTimeRemaining?: number } = {
+  const repaired: TournamentState & { pausedTimeRemaining?: unknown } = {
     ...state,
   };
 
