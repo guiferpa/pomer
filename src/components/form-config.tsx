@@ -1,5 +1,9 @@
 import type { TranslationKeys } from "@/i18n/translations";
-import type { StructureName, TournamentConfig } from "@/types/tournament";
+import {
+  STRUCTURE_NAMES,
+  type StructureName,
+  type TournamentConfig,
+} from "@/types/tournament";
 
 import React, { useState } from "react";
 import {
@@ -53,9 +57,11 @@ const NUMBER_FIELDS = Object.keys(NUMBER_LIMITS) as NumberField[];
 
 type FieldErrors = Partial<Record<NumberField, string>>;
 
+type Translate = (key: TranslationKeys) => string;
+
 const validateNumbers = (
   draft: Draft,
-  t: (key: TranslationKeys) => string,
+  t: Translate,
 ): FieldErrors => {
   const errors: FieldErrors = {};
 
@@ -99,14 +105,17 @@ const toDraft = (config?: TournamentConfig): Draft => {
   };
 };
 
-const getStructureOptions = (t: (key: any) => string) => [
-  { key: "small", label: t("structureSmall") },
-  { key: "medium", label: t("structureMedium") },
-  { key: "large", label: t("structureLarge") },
-  { key: "turbo", label: t("structureTurbo") },
-];
+const STRUCTURE_LABELS: Record<StructureName, TranslationKeys> = {
+  small: "structureSmall",
+  medium: "structureMedium",
+  large: "structureLarge",
+  turbo: "structureTurbo",
+};
 
-const getColorOptions = (t: (key: any) => string) => [
+const getStructureOptions = (t: Translate) =>
+  STRUCTURE_NAMES.map((key) => ({ key, label: t(STRUCTURE_LABELS[key]) }));
+
+const getColorOptions = (t: Translate) => [
   { key: "#006FEE", label: t("blue"), color: "#006FEE" },
   { key: "#FF6B6B", label: t("red"), color: "#FF6B6B" },
   { key: "#51CF66", label: t("green"), color: "#51CF66" },
@@ -117,7 +126,7 @@ const getColorOptions = (t: (key: any) => string) => [
   { key: "#FFD43B", label: t("yellow"), color: "#FFD43B" },
 ];
 
-const getThemeOptions = (t: (key: any) => string) => [
+const getThemeOptions = (t: Translate) => [
   { key: "light", label: t("lightMode") },
   { key: "dark", label: t("darkMode") },
 ];
