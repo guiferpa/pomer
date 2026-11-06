@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 Blocked by: None
 
 # 01: Torneio salvo inválido não impede o app de abrir
