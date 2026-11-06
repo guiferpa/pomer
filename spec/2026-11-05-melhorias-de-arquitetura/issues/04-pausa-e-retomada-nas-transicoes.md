@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 # 04: Pausa e retomada no módulo de transições
