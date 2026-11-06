@@ -912,6 +912,64 @@ describe.each([
   });
 });
 
+describe("analytics", () => {
+  const button = (name: string) => screen.getByRole("button", { name });
+  const track = () => {
+    const gtag = vi.fn();
+    (window as any).gtag = gtag;
+    return () => gtag.mock.calls.filter((c) => c[0] === "event");
+  };
+
+  it("sends tournament_started with the tournament name", () => {
+    const events = track();
+    const { container } = render(<App />);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(events()).toEqual([
+      ["event", "tournament_started", expect.objectContaining({ event_category: "Tournament", event_label: "Torneio Pomer" })],
+    ]);
+  });
+
+  it("sends tournament_paused and tournament_resumed", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Pausar"));
+    fireEvent.click(button("Retomar"));
+    expect(events().map((c) => [c[1], c[2].event_category])).toEqual([
+      ["tournament_paused", "Tournament"],
+      ["tournament_resumed", "Tournament"],
+    ]);
+  });
+
+  it("sends level_skipped with the skipped level", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Próximo Nível"));
+    expect(events()).toEqual([
+      ["event", "level_skipped", expect.objectContaining({ event_category: "Tournament", event_label: "Level 1" })],
+    ]);
+  });
+
+  it("sends tournament_reset", () => {
+    const events = track();
+    seed({});
+    render(<App />);
+    fireEvent.click(button("Reset"));
+    fireEvent.click(button("Resetar"));
+    expect(events().map((c) => [c[1], c[2].event_category])).toEqual([
+      ["tournament_reset", "Tournament"],
+    ]);
+  });
+
+  it("sends nothing and does not break without gtag", () => {
+    seed({});
+    render(<App />);
+    expect(() => fireEvent.click(button("Pausar"))).not.toThrow();
+    expect(button("Retomar")).toBeTruthy();
+  });
+});
+
 describe("back from an absence", () => {
   const button = (name: string) => screen.getByRole("button", { name });
   const minutesAgo = (minutes: number) =>
