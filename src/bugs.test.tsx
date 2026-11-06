@@ -9,7 +9,7 @@ import { ConfigForm } from "@/components/form-config";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { useTournament } from "@/hooks/useTournament";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { generateBlindLevels } from "@/utils/helpers";
+import { blindLevels, buildStructure } from "@/utils/structures";
 
 const KEY = "pomer-tournament-state";
 let plays = 0;
@@ -19,7 +19,7 @@ const cfg = (levels: number, breakInterval: number, duration = 1, breakDuration 
   levelDuration: duration,
   breakInterval,
   breakDuration,
-  blindStructure: generateBlindLevels(25, levels, duration),
+  blindStructure: blindLevels(25, levels, duration),
   primaryColor: "#FF6B6B",
 });
 
@@ -168,9 +168,9 @@ describe("useTournament", () => {
   });
 });
 
-describe("generateBlindLevels", () => {
-  it.fails("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
-    const s = generateBlindLevels(100, 25, 20);
+describe("blind structures", () => {
+  it("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
+    const s = buildStructure("large", 20);
     const jumps = s.slice(1).map((l, i) => l.smallBlind / s[i].smallBlind);
     expect(Math.max(...jumps)).toBeLessThanOrEqual(2);
   });
