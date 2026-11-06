@@ -1,7 +1,7 @@
 // Declaração de tipos para Google Analytics gtag
 declare global {
   interface Window {
-    gtag: (
+    gtag?: (
       command: 'config' | 'event' | 'js',
       targetId: string,
       config?: Record<string, any>

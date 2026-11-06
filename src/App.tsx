@@ -2,7 +2,8 @@ import type { TournamentConfig } from "@/types/tournament";
 
 import { useEffect } from "react";
 
-import { useTournament, useLocalStorage, useAnalytics } from "@/hooks";
+import { useTournament, useLocalStorage } from "@/hooks";
+import { trackEvent } from "@/utils/analytics";
 import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
 
@@ -17,8 +18,6 @@ function App() {
     nextLevel,
     resetTournament,
   } = useTournament();
-
-  const { trackEvent } = useAnalytics();
 
   // Verificar se o torneio está configurado e válido
   const isConfigured = state.config.blindStructure.length > 0 && 
@@ -38,12 +37,12 @@ function App() {
   const handleStartTournament = (config: TournamentConfig) => {
     setSavedConfig(config);
     startTournament(config);
-    trackEvent("tournament_started", "Tournament", config.name);
+    trackEvent("tournament_started", config.name);
   };
 
   const handleReset = () => {
     resetTournament();
-    trackEvent("tournament_reset", "Tournament");
+    trackEvent("tournament_reset");
   };
 
   return (

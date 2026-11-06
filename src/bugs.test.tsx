@@ -220,7 +220,7 @@ describe("App integration", () => {
     expect(saved.history.map((h: { level: number }) => h.level)).toEqual([1, 2]);
   });
 
-  it.fails("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
+  it("T12 mounting does not send extra GA page_view config calls (index.html already sends one)", () => {
     const gtag = vi.fn();
     (window as any).gtag = gtag;
     seed({});

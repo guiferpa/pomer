@@ -15,7 +15,8 @@ import {
   isTimeUp,
   levelsUntilNextBreak,
 } from "@/utils/transitions";
-import { useI18n, useAnalytics, useWakeLock } from "@/hooks";
+import { trackEvent } from "@/utils/analytics";
+import { useI18n, useWakeLock } from "@/hooks";
 
 interface CountdownProps {
   state: TournamentState;
@@ -55,7 +56,6 @@ export const Countdown: React.FC<CountdownProps> = ({
 }) => {
   const [showResetModal, setShowResetModal] = useState(false);
   const { t } = useI18n();
-  const { trackEvent } = useAnalytics();
   
   // Wake Lock para prevenir hibernação da tela quando o countdown estiver rodando
   useWakeLock({
@@ -217,7 +217,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               variant="primary"
               onPress={() => {
                 onToggle();
-                trackEvent(isRunning ? "tournament_paused" : "tournament_resumed", "Tournament");
+                trackEvent(isRunning ? "tournament_paused" : "tournament_resumed");
               }}
             >
               {isRunning ? (
@@ -241,7 +241,7 @@ export const Countdown: React.FC<CountdownProps> = ({
               variant="primary"
               onPress={() => {
                 onNextLevel();
-                trackEvent("level_skipped", "Tournament", `Level ${state.currentLevel}`);
+                trackEvent("level_skipped",`Level ${state.currentLevel}`);
               }}
             >
               <NextIcon
