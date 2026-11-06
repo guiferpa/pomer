@@ -73,8 +73,6 @@ function App() {
 
             {/* Cronômetro Principal */}
             <Countdown
-              history={state.history}
-              isRunning={state.isRunning}
               state={state}
               onNextLevel={nextLevel}
               onReset={handleReset}
