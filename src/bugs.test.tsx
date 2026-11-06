@@ -228,7 +228,7 @@ describe("App integration", () => {
     expect(gtag.mock.calls.filter((c) => c[0] === "config").length).toBe(0);
   });
 
-  it.fails("T13 the wake lock is requested once across timer ticks", async () => {
+  it("T13 the wake lock is requested once across timer ticks", async () => {
     const request = vi.fn(async () => {
       const s = new EventTarget() as any;
       s.release = vi.fn(async () => {});
@@ -245,7 +245,7 @@ describe("App integration", () => {
 });
 
 describe("useWakeLock", () => {
-  it.fails("T14 pausing while the request is in flight does not leak the lock", async () => {
+  it("T14 pausing while the request is in flight does not leak the lock", async () => {
     let resolve!: (s: any) => void;
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
@@ -253,7 +253,7 @@ describe("useWakeLock", () => {
       value: { request: () => new Promise((r) => (resolve = r)) },
       configurable: true,
     });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     rerender({ enabled: false });
@@ -1352,12 +1352,12 @@ describe("controls (must pass)", () => {
     expect(plays).toBe(1);
   });
 
-  it("C4 with stable callbacks the wake lock is requested once and released on disable", async () => {
+  it("C4 the wake lock is requested once and released on disable", async () => {
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
     const request = vi.fn(async () => sentinel);
     Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     await act(async () => {});

@@ -58,15 +58,7 @@ export const Countdown: React.FC<CountdownProps> = ({
   const { trackEvent } = useAnalytics();
   
   // Wake Lock para prevenir hibernação da tela quando o countdown estiver rodando
-  useWakeLock({
-    enabled: isRunning,
-    onError: (error) => {
-      console.warn('Wake Lock não disponível:', error.message);
-    },
-    onRelease: () => {
-      console.log('Wake Lock liberado');
-    },
-  });
+  useWakeLock(isRunning);
 
   const currentLevel = state.config.blindStructure[state.currentLevel - 1];
   const nextLevel = state.config.blindStructure[state.currentLevel];
