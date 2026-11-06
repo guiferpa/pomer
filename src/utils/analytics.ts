@@ -1,4 +1,4 @@
-// The page view is sent once by index.html; this module only sends app events.
+// O page view é enviado uma vez pelo index.html; este módulo só envia os eventos do app.
 export const ANALYTICS_EVENTS = [
   "tournament_started",
   "tournament_paused",
