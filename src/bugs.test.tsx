@@ -523,6 +523,60 @@ describe("ConfigForm", () => {
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(screen.getByRole("button", { name: "Iniciar Torneio" })).toBeTruthy();
   });
+
+  it.each<[RegExp, string, string]>([
+    [/Duração dos Níveis/, "0", "1 a 60"],
+    [/Duração dos Níveis/, "61", "1 a 60"],
+    [/Intervalo de Break/, "0", "1 a 10"],
+    [/Intervalo de Break/, "11", "1 a 10"],
+    [/Duração do Break/, "0", "1 a 30"],
+    [/Duração do Break/, "31", "1 a 30"],
+  ])("starting with %s at %s shows the limits on that field and does not start", (name, value, limits) => {
+    const { container } = render(<App />);
+    fireEvent.change(field(name), { target: { value } });
+    submit(container);
+    expect(field(name).getAttribute("aria-invalid")).toBe("true");
+    expect(errorOf(field(name))).toContain(`Use um número inteiro de ${limits}.`);
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("values at the limits start the tournament", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "60" } });
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "1" } });
+    fireEvent.change(field(/Duração do Break/), { target: { value: "30" } });
+    submit(container);
+    expect(startedConfig()).toMatchObject({ levelDuration: 60, breakInterval: 1, breakDuration: 30 });
+  });
+
+  it("correcting the value starts the tournament with the value typed", () => {
+    const { container } = render(<App />);
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "50" } });
+    submit(container);
+    expect(localStorage.getItem(KEY)).toBeNull();
+
+    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "25" } });
+    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBeNull();
+    fireEvent.change(field(/Intervalo de Break/), { target: { value: "4" } });
+    submit(container);
+    expect(startedConfig()).toMatchObject({ levelDuration: 25, breakInterval: 4 });
+    expect(startedConfig().blindStructure[0].duration).toBe(25);
+  });
+
+  it.each<[string, RegExp, string, string]>([
+    ["es", /Duración de los Niveles/, "Completa este campo.", "Usa un número entero de 1 a 60."],
+    ["en", /Level Duration/, "Fill in this field.", "Use a whole number from 1 to 60."],
+  ])("the field errors exist in %s", (language, name, required, outOfRange) => {
+    localStorage.setItem("pomer-language", language);
+    const { container } = render(<App />);
+    fireEvent.change(field(name), { target: { value: "" } });
+    submit(container);
+    expect(errorOf(field(name))).toContain(required);
+    fireEvent.change(field(name), { target: { value: "99" } });
+    submit(container);
+    expect(errorOf(field(name))).toContain(outOfRange);
+  });
 });
 
 describe("last level screen", () => {
