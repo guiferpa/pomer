@@ -114,7 +114,7 @@ Events also send `event_category`. To break reports down by `event_category` or 
 
 Keep in mind when reading the numbers:
 
-- Page views drop starting AAAA-MM-DD. That drop is a counting fix, not a loss of usage: before that date, each component that sent events also sent an extra page view when it mounted. Now only `index.html` registers the page view.
+- Page views drop starting 2026-11-06. That drop is a counting fix, not a loss of usage: before that date, each component that sent events also sent an extra page view when it mounted. Now only `index.html` registers the page view.
 - Local development sessions are counted too, because tracking is not limited to production.
 
 To set up a new property, see [ANALYTICS_SETUP.md](ANALYTICS_SETUP.md).
