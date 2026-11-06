@@ -22,14 +22,14 @@ export const useTournament = () => {
 
   // Lido uma vez só. Um torneio inválido abre como se nada estivesse salvo, e a
   // primeira gravação esvazia a chave, então o refresh seguinte não avisa de novo.
-  const [loaded] = useState(() => {
+  const [initialLoad] = useState(() => {
     const now = new Date();
 
     return { now, result: loadTournament(now) };
   });
 
   const [state, setState] = useState<TournamentState>(() => {
-    const { now, result } = loaded;
+    const { now, result } = initialLoad;
 
     if (result.status === "saved") {
       // O torneio abre no ponto em que estaria pela hora real.
@@ -169,6 +169,6 @@ export const useTournament = () => {
     toggleTournament,
     nextLevel,
     resetTournament,
-    savedTournamentLost: loaded.result.status === "invalid",
+    savedTournamentLost: initialLoad.result.status === "invalid",
   };
 };
