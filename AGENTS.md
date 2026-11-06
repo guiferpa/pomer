@@ -43,3 +43,5 @@ Toda ideia ou funcionalidade passa por estes passos, nesta ordem. Upgrades técn
 O projeto ainda diverge das regras acima. Remova cada item quando ele for resolvido.
 
 - O PWA ainda não existe: faltam manifest e service worker.
+- O som no iPhone segue sem verificação: o `play()` de `useAudio` roda fora de um gesto do usuário e o erro é ignorado. Falta testar em um iPhone real.
+- O fallback do wake lock, para navegadores sem a API, provavelmente não mantém a tela ligada: nem o `mousemove` sintético nem o vídeo do canvas.
