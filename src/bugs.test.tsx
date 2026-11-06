@@ -228,7 +228,7 @@ describe("App integration", () => {
     expect(gtag.mock.calls.filter((c) => c[0] === "config").length).toBe(0);
   });
 
-  it.fails("T13 the wake lock is requested once across timer ticks", async () => {
+  it("T13 the wake lock is requested once across timer ticks", async () => {
     const request = vi.fn(async () => {
       const s = new EventTarget() as any;
       s.release = vi.fn(async () => {});
@@ -245,7 +245,7 @@ describe("App integration", () => {
 });
 
 describe("useWakeLock", () => {
-  it.fails("T14 pausing while the request is in flight does not leak the lock", async () => {
+  it("T14 pausing while the request is in flight does not leak the lock", async () => {
     let resolve!: (s: any) => void;
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
@@ -253,12 +253,76 @@ describe("useWakeLock", () => {
       value: { request: () => new Promise((r) => (resolve = r)) },
       configurable: true,
     });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     rerender({ enabled: false });
     await act(async () => resolve(sentinel));
     expect(sentinel.release).toHaveBeenCalled();
+  });
+
+  const stubSentinels = () => {
+    const sentinels: any[] = [];
+    const request = vi.fn(async () => {
+      const s: any = new EventTarget();
+      s.release = vi.fn(async () => {});
+      sentinels.push(s);
+      return s;
+    });
+    Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
+    return { request, sentinels };
+  };
+  const setHidden = (hidden: boolean) => {
+    Object.defineProperty(document, "hidden", { value: hidden, configurable: true });
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+  };
+
+  it("requests the lock again when the page becomes visible while it should stay on", async () => {
+    const { request, sentinels } = stubSentinels();
+    renderHook(({ enabled }) => useWakeLock(enabled), { initialProps: { enabled: true } });
+    await act(async () => {});
+    setHidden(true);
+    expect(sentinels[0].release).toHaveBeenCalled();
+    setHidden(false);
+    await act(async () => {});
+    expect(request).toHaveBeenCalledTimes(2);
+    Object.defineProperty(document, "hidden", { value: false, configurable: true });
+  });
+
+  it("does not request the lock when the page becomes visible while paused", async () => {
+    const { request } = stubSentinels();
+    renderHook(({ enabled }) => useWakeLock(enabled), { initialProps: { enabled: false } });
+    setHidden(true);
+    setHidden(false);
+    await act(async () => {});
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("a failed request produces a single internal warning and no logs", async () => {
+    Object.defineProperty(navigator, "wakeLock", {
+      value: { request: vi.fn(async () => { throw new Error("denied"); }) },
+      configurable: true,
+    });
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
+      initialProps: { enabled: true },
+    });
+    await act(async () => {});
+    rerender({ enabled: true });
+    await act(async () => {});
+    expect(console.warn).toHaveBeenCalledTimes(1);
+    expect(console.log).not.toHaveBeenCalled();
+  });
+
+  it("keeps the screen on at 00:00 on the last level", async () => {
+    const { request, sentinels } = stubSentinels();
+    seed({ config: cfg(3, 10), currentLevel: 3 });
+    render(<App />);
+    for (let i = 0; i < 65; i++) {
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+    }
+    expect(screen.getByText("Tempo esgotado")).toBeTruthy();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(sentinels[0].release).not.toHaveBeenCalled();
   });
 });
 
@@ -1410,12 +1474,12 @@ describe("controls (must pass)", () => {
     expect(plays).toBe(1);
   });
 
-  it("C4 with stable callbacks the wake lock is requested once and released on disable", async () => {
+  it("C4 the wake lock is requested once and released on disable", async () => {
     const sentinel: any = new EventTarget();
     sentinel.release = vi.fn(async () => {});
     const request = vi.fn(async () => sentinel);
     Object.defineProperty(navigator, "wakeLock", { value: { request }, configurable: true });
-    const { rerender } = renderHook(({ enabled }) => useWakeLock({ enabled }), {
+    const { rerender } = renderHook(({ enabled }) => useWakeLock(enabled), {
       initialProps: { enabled: true },
     });
     await act(async () => {});
