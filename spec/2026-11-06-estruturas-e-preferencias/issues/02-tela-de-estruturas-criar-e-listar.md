@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 Blocked by: None
 
 # 02: Tela de estruturas: criar e listar
