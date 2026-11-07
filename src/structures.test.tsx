@@ -1,6 +1,6 @@
 // The blind structures screen, driven through the App with the setup of
 // `src/bugs.test.tsx`: state seeded in localStorage, fake clock, stubbed Audio.
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "@/App";
@@ -305,5 +305,226 @@ describe("structures list", () => {
     openStructures();
 
     expect(listed()).toEqual([expect.stringContaining("Boa")]);
+  });
+});
+
+describe("starting a tournament with an own structure", () => {
+  const KEY = "pomer-tournament-state";
+  const CONFIG_KEY = "pomer-config";
+
+  const house = {
+    id: "house",
+    name: "Casa",
+    updatedAt: "2026-11-05T10:00:00.000Z",
+    levels: [
+      { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+      { level: 2, smallBlind: 50, bigBlind: 100, duration: 20 },
+      { level: 3, smallBlind: 100, bigBlind: 200, duration: 5 },
+      { level: 4, smallBlind: 200, bigBlind: 400, duration: 30 },
+    ],
+  };
+  const turbo = {
+    id: "turbo",
+    name: "Turbo da casa",
+    updatedAt: "2026-11-06T10:00:00.000Z",
+    levels: [{ level: 1, smallBlind: 10, bigBlind: 20, duration: 7 }],
+  };
+  const lastConfig = (over: Record<string, unknown> = {}) => ({
+    name: "Sexta",
+    breakInterval: 10,
+    breakDuration: 5,
+    primaryColor: "#FF6B6B",
+    blindStructure: turbo.levels,
+    ...over,
+  });
+
+  const saveStructures = (...list: unknown[]) =>
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify(list));
+  const structureSelect = () => screen.getByRole("button", { name: /Estrutura de Blinds/ });
+  const submit = () => fireEvent.submit(document.querySelector("form")!);
+  const started = () => JSON.parse(localStorage.getItem(KEY)!);
+  const tick = (seconds: number) => {
+    for (let i = 0; i < seconds; i++) act(() => void vi.advanceTimersByTime(1000));
+  };
+
+  it("has no level duration field nor ready-made structures", async () => {
+    saveStructures(house);
+    vi.useRealTimers();
+    render(<App />);
+
+    expect(screen.queryByRole("spinbutton", { name: /Duração dos Níveis/ })).toBeNull();
+    fireEvent.click(structureSelect());
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual([expect.stringContaining("Casa")]);
+  });
+
+  it("without saved structures, invites to create the first one and does not start", () => {
+    render(<App />);
+
+    expect(screen.getByText("Crie a sua primeira estrutura de blinds para iniciar o torneio.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Gerenciar estruturas" })).toBeTruthy();
+    submit();
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(button("Iniciar Torneio")).toBeTruthy();
+  });
+
+  it("lists the saved structures in the order of the structures screen, with the link beside it", async () => {
+    saveStructures(house, turbo);
+    vi.useRealTimers();
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: "Gerenciar estruturas" })).toBeTruthy();
+    fireEvent.click(structureSelect());
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toEqual([
+      expect.stringContaining("Turbo da casa"),
+      expect.stringContaining("Casa"),
+    ]);
+  });
+
+  it("previews the levels of the chosen structure, each with its duration", async () => {
+    saveStructures(house, turbo);
+    vi.useRealTimers();
+    render(<App />);
+    fireEvent.click(structureSelect());
+    fireEvent.click(await screen.findByRole("option", { name: /^Casa/ }));
+    await waitFor(() => expect(screen.queryByRole("option")).toBeNull());
+
+    expect(screen.getByText("25/50")).toBeTruthy();
+    expect(screen.getByText("50/100")).toBeTruthy();
+    expect(screen.getByText("15 min")).toBeTruthy();
+    expect(screen.getByText("20 min")).toBeTruthy();
+
+    submit();
+    expect(started().config.blindStructure).toEqual(house.levels);
+    expect(JSON.parse(localStorage.getItem(CONFIG_KEY)!).structureId).toBe("house");
+  });
+
+  it("does not start until a structure is chosen", () => {
+    saveStructures(house);
+    render(<App />);
+    submit();
+
+    expect(localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByText("Escolha uma estrutura.")).toBeTruthy();
+  });
+
+  it("counts each level with its own duration, also when skipping, pausing and after a refresh", () => {
+    saveStructures(house);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(lastConfig({ structureId: "house" })));
+    render(<App />);
+    submit();
+
+    expect(screen.getByText("15:00")).toBeTruthy();
+    tick(15 * 60);
+    expect(started().currentLevel).toBe(2);
+    expect(screen.getByText("20:00")).toBeTruthy();
+
+    fireEvent.click(button("Pausar"));
+    fireEvent.click(button("Próximo Nível"));
+    expect(started().currentLevel).toBe(3);
+    expect(screen.getByText("05:00")).toBeTruthy();
+
+    refresh();
+    expect(screen.getByText("05:00")).toBeTruthy();
+    fireEvent.click(button("Retomar"));
+    tick(5 * 60);
+    expect(started().currentLevel).toBe(4);
+    expect(screen.getByText("30:00")).toBeTruthy();
+  });
+
+  it("keeps its copy of the levels when the structure is deleted afterwards", () => {
+    saveStructures(house);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(lastConfig({ structureId: "house" })));
+    render(<App />);
+    submit();
+    saveStructures();
+    refresh();
+
+    expect(screen.getByText("15:00")).toBeTruthy();
+    expect(started().config.blindStructure).toEqual(house.levels);
+  });
+
+  it("comes back to the form with the chosen structure after a reset", () => {
+    saveStructures(house, turbo);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(lastConfig({ structureId: "house" })));
+    render(<App />);
+    submit();
+    fireEvent.click(button("Reset"));
+    fireEvent.click(button("Resetar"));
+    refresh();
+
+    expect(structureSelect().textContent).toContain("Casa");
+    submit();
+    expect(started().config.blindStructure).toEqual(house.levels);
+  });
+
+  it("opens without a chosen structure when it was deleted", () => {
+    saveStructures(turbo);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(lastConfig({ structureId: "house" })));
+    render(<App />);
+
+    expect(structureSelect().textContent).not.toContain("Casa");
+    submit();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("brings back a configuration from the previous version filled, without a chosen structure", () => {
+    saveStructures(house);
+    localStorage.setItem(
+      CONFIG_KEY,
+      JSON.stringify({ ...lastConfig(), levelDuration: 20, structure: "turbo" }),
+    );
+    render(<App />);
+
+    expect(field("Nome do Torneio").value).toBe("Sexta");
+    expect(
+      (screen.getByRole("spinbutton", { name: /Intervalo de Break/ }) as HTMLInputElement).value,
+    ).toBe("10");
+    expect(structureSelect().textContent).not.toContain("Casa");
+    submit();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("keeps the validation of the break fields", () => {
+    saveStructures(house);
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(lastConfig({ structureId: "house" })));
+    render(<App />);
+    const interval = screen.getByRole("spinbutton", { name: /Intervalo de Break/ });
+    fireEvent.change(interval, { target: { value: "11" } });
+    submit();
+
+    expect(interval.getAttribute("aria-invalid")).toBe("true");
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("opens a tournament saved by the previous version with the levels it kept", () => {
+    const older = {
+      name: "Antigo",
+      levelDuration: 99,
+      structure: "turbo",
+      breakInterval: 10,
+      breakDuration: 5,
+      primaryColor: "#FF6B6B",
+      blindStructure: house.levels,
+    };
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        config: older,
+        currentLevel: 2,
+        timeRemaining: 600,
+        isRunning: false,
+        isBreak: false,
+        history: [],
+        startTime: new Date().toISOString(),
+      }),
+    );
+    render(<App />);
+
+    expect(screen.getByText("10:00")).toBeTruthy();
+    fireEvent.click(button("Próximo Nível"));
+    expect(screen.getByText("05:00")).toBeTruthy();
+    expect(started().config.blindStructure).toEqual(house.levels);
   });
 });
