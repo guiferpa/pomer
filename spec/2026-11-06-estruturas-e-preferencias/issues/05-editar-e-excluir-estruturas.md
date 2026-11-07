@@ -1,5 +1,5 @@
 Status: ready-for-agent
-Blocked by: 03, 04
+Blocked by: 03
 
 # 05: Editar e excluir estruturas
 
@@ -17,3 +17,4 @@ Spec: `spec/2026-11-06-estruturas-e-preferencias/spec.md` (regras 16 e 17)
 ## Comments
 
 - 2026-11-06: adiado pelo usuário para depois do torneio de 2026-11-07. A entrega de hoje cobre só os tickets 01, 02 e 03.
+- 2026-11-07: o usuário pediu o ticket 05 antes do 04. O bloqueio pelo 04 foi retirado: a edição usa o mesmo rascunho em memória da criação, e passa a sobreviver ao refresh quando o 04 for feito. O ante (spec `2026-11-06-ante`) também vale na edição.
