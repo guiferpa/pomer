@@ -7,6 +7,7 @@ import type {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  deleteStructure,
   loadConfig,
   loadStructures,
   loadTournament,
@@ -305,6 +306,22 @@ describe("blind structures", () => {
     expect(loadStructures()).toEqual([
       structure({ name: "Casa nova", updatedAt: "2026-11-06T12:00:00.000Z" }),
     ]);
+  });
+
+  it("deletes a structure by its id and keeps the others", () => {
+    saveStructure(structure({ id: "a", name: "A" }));
+    saveStructure(structure({ id: "b", name: "B" }));
+    deleteStructure("a");
+
+    expect(loadStructures()).toEqual([structure({ id: "b", name: "B" })]);
+  });
+
+  it("forgets the structure chosen in the last configuration once it is deleted", () => {
+    saveStructure(structure({ id: "a" }));
+    saveConfig(config({ structureId: "a" }));
+    deleteStructure("a");
+
+    expect(loadConfig()).toEqual(config());
   });
 
   it("ignores broken JSON", () => {

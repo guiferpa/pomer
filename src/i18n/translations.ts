@@ -107,6 +107,13 @@ export const translations = {
     structureNameTaken: "Já existe uma estrutura com este nome.",
     positiveInteger: "Use um número inteiro maior que zero.",
     bigBelowSmall: "O big blind deve ser maior ou igual ao small blind.",
+    edit: "Editar",
+    delete: "Excluir",
+    editStructureNamed: "Editar {name}",
+    deleteStructureNamed: "Excluir {name}",
+    deleteStructureTitle: "Excluir estrutura",
+    deleteStructureMessage:
+      "Excluir a estrutura \"{name}\"? Um torneio em andamento não muda.",
   },
 
   es: {
@@ -217,6 +224,13 @@ export const translations = {
     structureNameTaken: "Ya existe una estructura con este nombre.",
     positiveInteger: "Usa un número entero mayor que cero.",
     bigBelowSmall: "La ciega grande debe ser mayor o igual a la ciega pequeña.",
+    edit: "Editar",
+    delete: "Eliminar",
+    editStructureNamed: "Editar {name}",
+    deleteStructureNamed: "Eliminar {name}",
+    deleteStructureTitle: "Eliminar estructura",
+    deleteStructureMessage:
+      "¿Eliminar la estructura \"{name}\"? Un torneo en curso no cambia.",
   },
 
   en: {
@@ -326,6 +340,13 @@ export const translations = {
     structureNameTaken: "A structure with this name already exists.",
     positiveInteger: "Use a whole number greater than zero.",
     bigBelowSmall: "The big blind must be greater than or equal to the small blind.",
+    edit: "Edit",
+    delete: "Delete",
+    editStructureNamed: "Edit {name}",
+    deleteStructureNamed: "Delete {name}",
+    deleteStructureTitle: "Delete structure",
+    deleteStructureMessage:
+      "Delete the structure \"{name}\"? A running tournament does not change.",
   },
 };
 

@@ -393,6 +393,184 @@ describe("structures list", () => {
   });
 });
 
+describe("editing a structure", () => {
+  const house = {
+    id: "house",
+    name: "Casa",
+    updatedAt: "2026-11-01T10:00:00.000Z",
+    levels: [
+      { level: 1, smallBlind: 25, bigBlind: 50, ante: 50, duration: 15 },
+      { level: 2, smallBlind: 50, bigBlind: 100, duration: 20 },
+    ],
+  };
+  const recent = structure("recent", "Recente", "2026-11-05T10:00:00.000Z");
+
+  beforeEach(() => {
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify([house, recent]));
+  });
+
+  it("opens the saved structure in the editor, with its ante", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+
+    expect(field("Nome da estrutura").value).toBe("Casa");
+    expect(levelField(1, "Small Blind").value).toBe("25");
+    expect(levelField(1, "Big Blind").value).toBe("50");
+    expect(levelField(1, "Ante").value).toBe("50");
+    expect(levelField(1, "Duração (min)").value).toBe("15");
+    expect(levelField(2, "Ante").value).toBe("");
+    expect(levelField(2, "Duração (min)").value).toBe("20");
+  });
+
+  it("saves the changes in place, moves it to the top and survives a refresh", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(2, "Big Blind"), "150");
+    type(levelField(2, "Ante"), "150");
+    fireEvent.click(button("Adicionar nível"));
+    fireEvent.click(button("Salvar"));
+
+    expect(listed()).toEqual([
+      expect.stringContaining("Casa"),
+      expect.stringContaining("Recente"),
+    ]);
+    expect(listed()[0]).toContain("3 níveis");
+    refresh();
+    expect(listed()[0]).toContain("Casa");
+    expect(stored()).toHaveLength(2);
+    expect(stored()[0]).toMatchObject({
+      id: "house",
+      levels: [
+        { smallBlind: 25, bigBlind: 50, ante: 50, duration: 15 },
+        { smallBlind: 50, bigBlind: 150, ante: 150, duration: 20 },
+        { smallBlind: 100, bigBlind: 300, ante: 300, duration: 20 },
+      ],
+    });
+  });
+
+  it("keeps its own name but refuses the name of another saved structure", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(field("Nome da estrutura"), "Recente");
+    fireEvent.click(button("Salvar"));
+
+    expect(screen.getByText("Já existe uma estrutura com este nome.")).toBeTruthy();
+    expect(stored()[0].name).toBe("Casa");
+
+    type(field("Nome da estrutura"), "Casa");
+    fireEvent.click(button("Salvar"));
+    expect(listed()[0]).toContain("Casa");
+  });
+
+  it("validates the edited levels like the creation does", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(1, "Duração (min)"), "61");
+    fireEvent.click(button("Salvar"));
+
+    expect(screen.getByText("Use um número inteiro de 1 a 60.")).toBeTruthy();
+    expect(stored().find((s: { id: string }) => s.id === "house").levels[0].duration).toBe(15);
+  });
+});
+
+describe("deleting a structure", () => {
+  beforeEach(() => {
+    localStorage.setItem(
+      STRUCTURES_KEY,
+      JSON.stringify([
+        structure("a", "Casa", "2026-11-01T10:00:00.000Z"),
+        structure("b", "Turbo", "2026-11-05T10:00:00.000Z"),
+      ]),
+    );
+  });
+
+  it("asks for confirmation and keeps the structure when cancelled", () => {
+    openStructures();
+    fireEvent.click(button("Excluir Casa"));
+
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByText(/Casa/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancelar" }));
+
+    expect(listed()).toHaveLength(2);
+    expect(stored()).toHaveLength(2);
+  });
+
+  it("deletes the structure once confirmed, also after a refresh", () => {
+    openStructures();
+    fireEvent.click(button("Excluir Casa"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Excluir" }));
+
+    expect(listed()).toEqual([expect.stringContaining("Turbo")]);
+    refresh();
+    expect(listed()).toEqual([expect.stringContaining("Turbo")]);
+  });
+});
+
+describe("a running tournament and its structure", () => {
+  const KEY = "pomer-tournament-state";
+  const levels = [
+    { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+    { level: 2, smallBlind: 50, bigBlind: 100, duration: 20 },
+  ];
+
+  beforeEach(() => {
+    localStorage.setItem(
+      STRUCTURES_KEY,
+      JSON.stringify([{ id: "a", name: "Casa", updatedAt: "2026-11-01T10:00:00.000Z", levels }]),
+    );
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        config: {
+          name: "Sexta",
+          breakInterval: 10,
+          breakDuration: 5,
+          primaryColor: "#FF6B6B",
+          blindStructure: levels,
+        },
+        currentLevel: 1,
+        timeRemaining: 15 * 60,
+        isRunning: false,
+        isPaused: true,
+        isBreak: false,
+        history: [],
+      }),
+    );
+    window.location.hash = "#/estruturas";
+  });
+
+  const tournament = () => JSON.parse(localStorage.getItem(KEY)!);
+
+  const backToClock = () => {
+    window.location.hash = "";
+    refresh();
+  };
+
+  it("is not changed by editing the structure", () => {
+    render(<App />);
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(1, "Duração (min)"), "5");
+    type(levelField(1, "Big Blind"), "75");
+    fireEvent.click(button("Salvar"));
+    backToClock();
+
+    expect(tournament().config.blindStructure).toEqual(levels);
+    expect(screen.getByText("15:00")).toBeTruthy();
+  });
+
+  it("is not changed by deleting the structure", () => {
+    render(<App />);
+    fireEvent.click(button("Excluir Casa"));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Excluir" }));
+    backToClock();
+
+    expect(tournament().config.blindStructure).toEqual(levels);
+    expect(screen.getByText("15:00")).toBeTruthy();
+  });
+});
+
 describe("starting a tournament with an own structure", () => {
   const KEY = "pomer-tournament-state";
   const CONFIG_KEY = "pomer-config";
