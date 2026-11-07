@@ -33,6 +33,8 @@ export interface LevelHistory {
   level: number;
   smallBlind: number;
   bigBlind: number;
+  // Ausente quando o nível jogado não tinha ante.
+  ante?: number;
   startTime: Date;
   endTime: Date;
   duration: number;

@@ -108,6 +108,7 @@ const enterNext = (state: TournamentState, at: Date): TournamentState => {
       level: currentLevel,
       smallBlind: levelData.smallBlind,
       bigBlind: levelData.bigBlind,
+      ...(levelData.ante === undefined ? {} : { ante: levelData.ante }),
       startTime: state.startTime ?? at,
       endTime: at,
       duration: levelData.duration,

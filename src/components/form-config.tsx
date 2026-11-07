@@ -324,13 +324,20 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                             {t("level")} {level.level}
                           </span>
                           <span
-                            className="font-bold"
+                            className="flex flex-col items-center font-bold"
                             style={{
                               color: selectedColor,
                               transition: "color 0.8s ease-in-out",
                             }}
                           >
-                            {level.smallBlind}/{level.bigBlind}
+                            <span>
+                              {level.smallBlind}/{level.bigBlind}
+                            </span>
+                            {level.ante !== undefined && (
+                              <span className="text-xs">
+                                {`${t("ante")} ${level.ante}`}
+                              </span>
+                            )}
                           </span>
                           <span className="text-sm text-muted">
                             {level.duration} min
