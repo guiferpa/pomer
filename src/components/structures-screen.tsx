@@ -3,12 +3,17 @@ import type { BlindStructure, StructureDraft } from "@/types/tournament";
 import React, { useState } from "react";
 import { Button, Card, Link } from "@heroui/react";
 
+import { ConfirmModal } from "./confirm-modal";
 import { SettingsMenu } from "./settings-menu";
 import { StructureEditor } from "./structure-editor";
 
 import { ROUTE_HASHES, navigateTo, useI18n } from "@/hooks";
-import { loadStructures, saveStructure } from "@/utils/persistence";
-import { emptyStructureDraft } from "@/utils/structures";
+import {
+  deleteStructure,
+  loadStructures,
+  saveStructure,
+} from "@/utils/persistence";
+import { emptyStructureDraft, structureToDraft } from "@/utils/structures";
 
 // Leva à tela de estruturas pelo endereço dela.
 export const ManageStructuresLink: React.FC<{ className?: string }> = ({
@@ -49,6 +54,20 @@ export const StructuresScreen: React.FC<StructuresScreenProps> = ({
 
   // Do editor, voltar leva à lista; da lista, ao formulário de torneio.
   const handleBack = () => (draft ? setDraft(null) : onBack());
+
+  // A estrutura cuja exclusão aguarda confirmação.
+  const [deleting, setDeleting] = useState<BlindStructure | null>(null);
+
+  const handleDelete = () => {
+    if (!deleting) return;
+    deleteStructure(deleting.id);
+    setStructures(loadStructures());
+  };
+
+  const withName = (
+    key: "editStructureNamed" | "deleteStructureNamed" | "deleteStructureMessage",
+    structure: BlindStructure,
+  ) => t(key).replace("{name}", structure.name);
 
   const levelCount = (n: number) =>
     `${n} ${n === 1 ? t("levelSingular") : t("levelPlural")}`;
@@ -91,10 +110,32 @@ export const StructuresScreen: React.FC<StructuresScreenProps> = ({
                       key={structure.id}
                       className="flex justify-between items-center p-3 bg-surface-secondary rounded-lg"
                     >
-                      <span className="font-medium">{structure.name}</span>
-                      <span className="text-sm text-muted">
-                        {levelCount(structure.levels.length)}
-                      </span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium truncate">
+                          {structure.name}
+                        </span>
+                        <span className="text-sm text-muted">
+                          {levelCount(structure.levels.length)}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          aria-label={withName("editStructureNamed", structure)}
+                          size="sm"
+                          variant="secondary"
+                          onPress={() => setDraft(structureToDraft(structure))}
+                        >
+                          {t("edit")}
+                        </Button>
+                        <Button
+                          aria-label={withName("deleteStructureNamed", structure)}
+                          size="sm"
+                          variant="danger-soft"
+                          onPress={() => setDeleting(structure)}
+                        >
+                          {t("delete")}
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -103,6 +144,15 @@ export const StructuresScreen: React.FC<StructuresScreenProps> = ({
           )}
         </Card.Content>
       </Card>
+      <ConfirmModal
+        cancelText={t("cancel")}
+        confirmText={t("delete")}
+        isOpen={deleting !== null}
+        message={deleting ? withName("deleteStructureMessage", deleting) : ""}
+        title={t("deleteStructureTitle")}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 };

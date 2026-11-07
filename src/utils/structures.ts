@@ -79,6 +79,19 @@ export const emptyStructureDraft = (): StructureDraft => ({
   levels: [emptyLevel()],
 });
 
+// Uma estrutura salva aberta para edição, com o mesmo id. O ante fica vazio no
+// nível que não tem.
+export const structureToDraft = (structure: BlindStructure): StructureDraft => ({
+  id: structure.id,
+  name: structure.name,
+  levels: structure.levels.map((level) => ({
+    smallBlind: String(level.smallBlind),
+    bigBlind: String(level.bigBlind),
+    ante: level.ante === undefined ? "" : String(level.ante),
+    duration: String(level.duration),
+  })),
+});
+
 // O texto de um inteiro positivo, ou nada.
 const positiveText = (text: string, times: number): string => {
   const value = Number(text.trim());
