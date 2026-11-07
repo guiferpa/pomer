@@ -13,3 +13,7 @@ Spec: `spec/2026-11-06-estruturas-e-preferencias/spec.md` (regras 18 a 20 para o
 - [ ] Um rascunho guardado inválido é descartado sem aviso.
 - [ ] O módulo de persistência tem testes diretos para o rascunho, e o refresh e a confirmação têm testes pelo App.
 - [ ] `npm test` e `npm run build` passam.
+
+## Comments
+
+- 2026-11-06: adiado pelo usuário para depois do torneio de 2026-11-07. A entrega de hoje cobre só os tickets 01, 02 e 03.

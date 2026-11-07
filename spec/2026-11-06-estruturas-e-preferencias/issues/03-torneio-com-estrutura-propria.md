@@ -17,4 +17,5 @@ Spec: `spec/2026-11-06-estruturas-e-preferencias/spec.md` (regras 5 e 21 a 29)
 - [ ] Um torneio em andamento salvo pela versão anterior abre e segue com os níveis que guardou.
 - [ ] Uma última configuração salva pela versão anterior volta preenchida, sem estrutura escolhida.
 - [ ] Os testes que dependiam das estruturas prontas ou da duração do nível foram atualizados, sem perder o comportamento que verificam.
+- [ ] A tela de estruturas, o formulário de torneio e o menu de configurações foram conferidos em largura de celular, nos temas claro e escuro (vindo do ticket 05, adiado).
 - [ ] `npm test` e `npm run build` passam.
