@@ -1,7 +1,9 @@
 import type {
   BlindLevel,
   BlindStructure,
+  LevelDraft,
   LevelHistory,
+  StructureDraft,
   TournamentConfig,
   TournamentState,
 } from "@/types/tournament";
@@ -9,11 +11,12 @@ import type {
 import { repairSavedState } from "@/utils/transitions";
 import { levelErrors } from "@/utils/structures";
 
-// Único lugar que lê e grava o torneio, a última configuração e as estruturas
-// de blinds. O tema e o idioma ficam com quem cuida deles.
+// Único lugar que lê e grava o torneio, a última configuração, as estruturas
+// de blinds e o rascunho da estrutura em edição. O tema e o idioma ficam com quem cuida deles.
 const TOURNAMENT_KEY = "pomer-tournament-state";
 const CONFIG_KEY = "pomer-config";
 const STRUCTURES_KEY = "pomer-structures";
+const DRAFT_KEY = "pomer-structure-draft";
 
 export type LoadedTournament =
   | { status: "saved"; state: TournamentState }
@@ -188,4 +191,61 @@ export const deleteStructure = (id: string): void => {
     STRUCTURES_KEY,
     JSON.stringify(loadStructures().filter((s) => s.id !== id)),
   );
+};
+
+const DRAFT_LEVEL_FIELDS: (keyof LevelDraft)[] = [
+  "smallBlind",
+  "bigBlind",
+  "ante",
+  "duration",
+];
+
+// O rascunho guarda o texto digitado, válido ou não: só a forma é conferida.
+const isDraftLevel = (level: unknown): boolean =>
+  isObject(level) &&
+  DRAFT_LEVEL_FIELDS.every((field) => typeof level[field] === "string");
+
+const isDraft = (parsed: unknown): parsed is StructureDraft =>
+  isObject(parsed) &&
+  (parsed.id === undefined ||
+    (typeof parsed.id === "string" && parsed.id !== "")) &&
+  typeof parsed.name === "string" &&
+  Array.isArray(parsed.levels) &&
+  parsed.levels.length > 0 &&
+  parsed.levels.every(isDraftLevel);
+
+// O único rascunho, da estrutura nova ou da que está sendo editada (com `id`).
+// Um rascunho inválido é descartado sem aviso, e a chave fica vazia.
+export const loadDraft = (): StructureDraft | null => {
+  const raw = localStorage.getItem(DRAFT_KEY);
+
+  if (raw === null) return null;
+
+  const parsed = parse(raw);
+
+  if (!isDraft(parsed)) {
+    localStorage.removeItem(DRAFT_KEY);
+
+    return null;
+  }
+
+  const { id, name, levels } = parsed;
+  const kept = levels.map(({ smallBlind, bigBlind, ante, duration }) => ({
+    smallBlind,
+    bigBlind,
+    ante,
+    duration,
+  }));
+
+  return id === undefined ? { name, levels: kept } : { id, name, levels: kept };
+};
+
+// Grava o rascunho no lugar do anterior: existe um só por vez.
+export const saveDraft = (draft: StructureDraft): void => {
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+};
+
+// Salvar ou descartar a estrutura apaga o rascunho.
+export const clearDraft = (): void => {
+  localStorage.removeItem(DRAFT_KEY);
 };

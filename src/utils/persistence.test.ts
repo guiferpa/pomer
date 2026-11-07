@@ -1,5 +1,6 @@
 import type {
   BlindStructure,
+  StructureDraft,
   TournamentConfig,
   TournamentState,
 } from "@/types/tournament";
@@ -7,11 +8,14 @@ import type {
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  clearDraft,
   deleteStructure,
   loadConfig,
+  loadDraft,
   loadStructures,
   loadTournament,
   saveConfig,
+  saveDraft,
   saveStructure,
   saveTournament,
 } from "@/utils/persistence";
@@ -395,5 +399,74 @@ describe("blind structures", () => {
     saveStructure(structure({ id: "b", name: "Outra", updatedAt: "2026-11-06T11:00:00.000Z" }));
 
     expect(JSON.parse(localStorage.getItem(STRUCTURES_KEY)!)).toHaveLength(2);
+  });
+});
+
+describe("structure draft", () => {
+  const DRAFT_KEY = "pomer-structure-draft";
+
+  const draft = (over: Partial<StructureDraft> = {}): StructureDraft => ({
+    name: "Casa",
+    levels: [
+      { smallBlind: "25", bigBlind: "50", ante: "", duration: "15" },
+      { smallBlind: "50", bigBlind: "", ante: "abc", duration: "" },
+    ],
+    ...over,
+  });
+
+  it("has no draft when nothing was saved", () => {
+    expect(loadDraft()).toBeNull();
+  });
+
+  it("brings back a new structure draft exactly as typed, even if not valid yet", () => {
+    saveDraft(draft());
+
+    expect(loadDraft()).toEqual(draft());
+  });
+
+  it("brings back the draft of an edit with its id", () => {
+    saveDraft(draft({ id: "house" }));
+
+    expect(loadDraft()).toEqual(draft({ id: "house" }));
+  });
+
+  it("keeps a single draft: saving another replaces it", () => {
+    saveDraft(draft({ id: "house" }));
+    saveDraft(draft({ name: "Outra" }));
+
+    expect(loadDraft()).toEqual(draft({ name: "Outra" }));
+  });
+
+  it("forgets the draft once cleared", () => {
+    saveDraft(draft());
+    clearDraft();
+
+    expect(loadDraft()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  const level = draft().levels[0];
+
+  it.each<[string, unknown]>([
+    ["broken JSON", "{not json"],
+    ["null", null],
+    ["a list", [draft()]],
+    ["no name", { ...draft(), name: undefined }],
+    ["a name that is not text", { ...draft(), name: 3 }],
+    ["an empty id", draft({ id: "" })],
+    ["an id that is not text", { ...draft(), id: 7 }],
+    ["no levels", draft({ levels: [] })],
+    ["levels that are not a list", { ...draft(), levels: {} }],
+    ["a level that is not an object", { ...draft(), levels: [null] }],
+    ["a level field that is not text", { ...draft(), levels: [{ ...level, smallBlind: 25 }] }],
+    ["a level without ante", { ...draft(), levels: [{ ...level, ante: undefined }] }],
+  ])("discards a stored draft with %s silently", (_, broken) => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      typeof broken === "string" ? broken : JSON.stringify(broken),
+    );
+
+    expect(loadDraft()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
   });
 });
