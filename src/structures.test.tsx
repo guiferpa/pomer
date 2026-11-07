@@ -347,6 +347,8 @@ describe("ante in the structure editor", () => {
         within(screen.getByRole("group", { name: group })).getByRole("textbox", { name: "Ante" }),
       ).toBeTruthy();
       cleanup();
+      // The editor left open is a draft that would reopen on the next render.
+      localStorage.removeItem("pomer-structure-draft");
     }
   });
 });
@@ -895,5 +897,173 @@ describe("ante on screen", () => {
     expect(screen.getByText("10:00")).toBeTruthy();
     expect(clockAnte()).toBeNull();
     expect(screen.queryByText(/^Ante/)).toBeNull();
+  });
+});
+
+const DRAFT_KEY = "pomer-structure-draft";
+const editor = () => screen.queryByRole("textbox", { name: "Nome da estrutura" });
+
+const refreshOnStructures = () => {
+  cleanup();
+  window.location.hash = "#/estruturas";
+  render(<App />);
+};
+
+describe("the structure draft survives a refresh", () => {
+  const house = structure("house", "Casa", "2026-11-01T10:00:00.000Z");
+
+  it("reopens a new structure with what was typed", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    type(field("Nome da estrutura"), "Casa");
+    fillLevel(1, "25", "", "15");
+    fireEvent.click(button("Adicionar nível"));
+    type(levelField(2, "Ante"), "abc");
+    refreshOnStructures();
+
+    expect(field("Nome da estrutura").value).toBe("Casa");
+    expect(levelField(1, "Small Blind").value).toBe("25");
+    expect(levelField(1, "Big Blind").value).toBe("");
+    expect(levelField(1, "Duração (min)").value).toBe("15");
+    expect(levelField(2, "Ante").value).toBe("abc");
+  });
+
+  it("reopens an edit with what was typed and saves it in place", () => {
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify([house]));
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(1, "Big Blind"), "75");
+    refreshOnStructures();
+
+    expect(field("Nome da estrutura").value).toBe("Casa");
+    expect(levelField(1, "Big Blind").value).toBe("75");
+    fireEvent.click(button("Salvar"));
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0]).toMatchObject({ id: "house", levels: [{ bigBlind: 75 }] });
+  });
+
+  it("clears the draft on save: a refresh shows the list", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    type(field("Nome da estrutura"), "Casa");
+    fillLevel(1, "25", "50", "15");
+    fireEvent.click(button("Salvar"));
+    refreshOnStructures();
+
+    expect(listed()).toEqual([expect.stringContaining("Casa")]);
+    expect(editor()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("discards an invalid stored draft silently and shows the list", () => {
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify([house]));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ name: "Casa", levels: "x" }));
+    refreshOnStructures();
+
+    expect(listed()).toEqual([expect.stringContaining("Casa")]);
+    expect(editor()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("reopens an edit whose structure was deleted as a new structure, with what was typed", () => {
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        id: "gone",
+        name: "Antiga",
+        levels: [{ smallBlind: "10", bigBlind: "20", ante: "", duration: "12" }],
+      }),
+    );
+    refreshOnStructures();
+
+    expect(field("Nome da estrutura").value).toBe("Antiga");
+    fireEvent.click(button("Salvar"));
+    expect(stored()).toHaveLength(1);
+    expect(stored()[0]).toMatchObject({ name: "Antiga", levels: [{ smallBlind: 10 }] });
+    expect(stored()[0].id).not.toBe("gone");
+  });
+});
+
+describe("going back from the editor", () => {
+  const house = structure("house", "Casa", "2026-11-01T10:00:00.000Z");
+
+  beforeEach(() => {
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify([house]));
+  });
+
+  it("goes straight to the list when a new structure was not touched", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    fireEvent.click(button("Voltar"));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(editor()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("goes straight to the list when an edit ends as it was opened", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(1, "Small Blind"), "30");
+    type(levelField(1, "Small Blind"), "25");
+    fireEvent.click(button("Voltar"));
+
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(editor()).toBeNull();
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it("asks to discard unsaved changes and keeps editing when cancelled", () => {
+    openStructures();
+    fireEvent.click(button("Editar Casa"));
+    type(levelField(1, "Small Blind"), "30");
+    fireEvent.click(button("Voltar"));
+
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByRole("heading", { name: "Descartar mudanças?" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continuar editando" }));
+
+    expect(levelField(1, "Small Blind").value).toBe("30");
+    expect(localStorage.getItem(DRAFT_KEY)).not.toBeNull();
+  });
+
+  it("discards the changes once confirmed, also after a refresh", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    type(field("Nome da estrutura"), "Rascunho");
+    fireEvent.click(button("Voltar"));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", { name: "Descartar" }),
+    );
+
+    expect(editor()).toBeNull();
+    expect(listed()).toEqual([expect.stringContaining("Casa")]);
+    expect(localStorage.getItem(DRAFT_KEY)).toBeNull();
+    refreshOnStructures();
+    expect(editor()).toBeNull();
+    expect(stored()).toHaveLength(1);
+  });
+
+  it.each([
+    ["es", "Volver", "¿Descartar los cambios?", "Seguir editando", "Descartar"],
+    ["en", "Back", "Discard changes?", "Keep editing", "Discard"],
+  ])("names the discard confirmation in %s", (lang, back, title, keep, discard) => {
+    localStorage.setItem("pomer-language", lang);
+    localStorage.setItem(
+      DRAFT_KEY,
+      JSON.stringify({
+        name: "x",
+        levels: [{ smallBlind: "", bigBlind: "", ante: "", duration: "" }],
+      }),
+    );
+    refreshOnStructures();
+    fireEvent.click(button(back));
+
+    const dialog = screen.getByRole("dialog");
+
+    expect(within(dialog).getByRole("heading", { name: title })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: keep })).toBeTruthy();
+    expect(within(dialog).getByRole("button", { name: discard })).toBeTruthy();
   });
 });
