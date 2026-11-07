@@ -2,6 +2,8 @@ export interface BlindLevel {
   level: number;
   smallBlind: number;
   bigBlind: number;
+  // Ausente quando o nível não tem ante.
+  ante?: number;
   duration: number; // em minutos
 }
 
@@ -31,6 +33,8 @@ export interface LevelHistory {
   level: number;
   smallBlind: number;
   bigBlind: number;
+  // Ausente quando o nível jogado não tinha ante.
+  ante?: number;
   startTime: Date;
   endTime: Date;
   duration: number;
@@ -49,6 +53,8 @@ export interface BlindStructure {
 export interface LevelDraft {
   smallBlind: string;
   bigBlind: string;
+  // Vazio quando o nível não tem ante.
+  ante: string;
   duration: string;
 }
 

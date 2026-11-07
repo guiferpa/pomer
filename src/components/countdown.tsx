@@ -137,6 +137,23 @@ export const Countdown: React.FC<CountdownProps> = ({
                   </p>
                 </div>
               </div>
+
+              {currentLevel.ante !== undefined && (
+                <div className="text-center">
+                  <p
+                    className="text-3xl font-bold"
+                    style={{
+                      color: state.config.primaryColor,
+                      transition: "color 0.8s ease-in-out",
+                    }}
+                  >
+                    {formatCurrency(currentLevel.ante)}
+                  </p>
+                  <p className="text-base font-semibold text-muted">
+                    {t("ante")}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -275,6 +292,17 @@ export const Countdown: React.FC<CountdownProps> = ({
                       {formatCurrency(nextLevel.smallBlind)} /{" "}
                       {formatCurrency(nextLevel.bigBlind)}
                     </span>
+                    {nextLevel.ante !== undefined && (
+                      <span
+                        className="text-base font-bold"
+                        style={{
+                          color: state.config.primaryColor,
+                          transition: "color 0.8s ease-in-out",
+                        }}
+                      >
+                        {`${t("ante")} ${formatCurrency(nextLevel.ante)}`}
+                      </span>
+                    )}
                   </>
                 )}
               </div>

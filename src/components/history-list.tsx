@@ -54,6 +54,17 @@ export const HistoryList: React.FC<HistoryListProps> = ({
                     {formatCurrency(level.smallBlind)}/
                     {formatCurrency(level.bigBlind)}
                   </span>
+                  {level.ante !== undefined && (
+                    <p
+                      className="text-sm font-bold"
+                      style={{
+                        color: primaryColor,
+                        transition: "color 0.8s ease-in-out",
+                      }}
+                    >
+                      {`${t("ante")} ${formatCurrency(level.ante)}`}
+                    </p>
+                  )}
                   <p className="text-xs text-muted">
                     {level.duration}min
                   </p>

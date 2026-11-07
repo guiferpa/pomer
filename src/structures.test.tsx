@@ -47,7 +47,7 @@ const type = (input: HTMLInputElement, value: string) =>
   fireEvent.change(input, { target: { value } });
 
 // The level fields of the n-th level (1-based).
-const levelField = (n: number, label: "Small Blind" | "Big Blind" | "Duração (min)") =>
+const levelField = (n: number, label: "Small Blind" | "Big Blind" | "Ante" | "Duração (min)") =>
   within(screen.getByRole("group", { name: `Nível ${n}` })).getByRole("textbox", {
     name: label,
   }) as HTMLInputElement;
@@ -263,6 +263,91 @@ describe("validating a structure on save", () => {
 
     expect(levelField(1, "Duração (min)").getAttribute("aria-invalid")).not.toBe("true");
     expect(levelField(2, "Duração (min)").getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("ante in the structure editor", () => {
+  const startWith = (ante: string) => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    type(field("Nome da estrutura"), "Casa");
+    fillLevel(1, "25", "50", "15");
+    type(levelField(1, "Ante"), ante);
+  };
+
+  it("has an empty, optional ante field in each level", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+
+    expect(levelField(1, "Ante").value).toBe("");
+    expect(levelField(1, "Ante").getAttribute("aria-required")).not.toBe("true");
+  });
+
+  it("saves a level with an empty ante as a level without ante", () => {
+    startWith("  ");
+    fireEvent.click(button("Salvar"));
+
+    expect(stored()[0].levels).toEqual([
+      { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+    ]);
+  });
+
+  it("saves the ante of the level, with no relation required to the blinds", () => {
+    startWith("500");
+    fireEvent.click(button("Salvar"));
+
+    expect(stored()[0].levels).toEqual([
+      { level: 1, smallBlind: 25, bigBlind: 50, ante: 500, duration: 15 },
+    ]);
+
+    refresh();
+    expect(listed()).toEqual([expect.stringContaining("Casa")]);
+  });
+
+  it.each(["0", "2.5", "-10", "abc"])(
+    "shows the error on an ante of %s in the field and saves nothing",
+    (ante) => {
+      startWith(ante);
+      fireEvent.click(button("Salvar"));
+
+      expect(levelField(1, "Ante").getAttribute("aria-invalid")).toBe("true");
+      expect(
+        within(screen.getByRole("group", { name: "Nível 1" })).getByText(
+          "Use um número inteiro maior que zero.",
+        ),
+      ).toBeTruthy();
+      expect(localStorage.getItem(STRUCTURES_KEY)).toBeNull();
+
+      type(levelField(1, "Ante"), "50");
+      expect(levelField(1, "Ante").getAttribute("aria-invalid")).not.toBe("true");
+    },
+  );
+
+  it("suggests the next level with double the ante, or no ante when the previous had none", () => {
+    startWith("");
+    fireEvent.click(button("Adicionar nível"));
+
+    expect(levelField(2, "Ante").value).toBe("");
+
+    type(levelField(2, "Ante"), "75");
+    fireEvent.click(button("Adicionar nível"));
+
+    expect(levelField(3, "Ante").value).toBe("150");
+  });
+
+  it("names the ante field in Spanish and English", () => {
+    for (const [language, group] of [["es", "Nivel 1"], ["en", "Level 1"]] as const) {
+      localStorage.setItem("pomer-language", language);
+      window.location.hash = "#/estruturas";
+      render(<App />);
+      fireEvent.click(screen.getAllByRole("button")
+        .find((b) => /Nueva estructura|New structure/.test(b.textContent ?? ""))!);
+
+      expect(
+        within(screen.getByRole("group", { name: group })).getByRole("textbox", { name: "Ante" }),
+      ).toBeTruthy();
+      cleanup();
+    }
   });
 });
 
@@ -526,5 +611,111 @@ describe("starting a tournament with an own structure", () => {
     fireEvent.click(button("Próximo Nível"));
     expect(screen.getByText("05:00")).toBeTruthy();
     expect(started().config.blindStructure).toEqual(house.levels);
+  });
+});
+
+describe("ante on screen", () => {
+  const KEY = "pomer-tournament-state";
+  const CONFIG_KEY = "pomer-config";
+
+  const withAnte = {
+    id: "ante",
+    name: "Com ante",
+    updatedAt: "2026-11-05T10:00:00.000Z",
+    levels: [
+      { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+      { level: 2, smallBlind: 50, bigBlind: 100, ante: 75, duration: 20 },
+      { level: 3, smallBlind: 100, bigBlind: 200, ante: 150, duration: 20 },
+    ],
+  };
+
+  const startTournament = () => {
+    localStorage.setItem(STRUCTURES_KEY, JSON.stringify([withAnte]));
+    localStorage.setItem(
+      CONFIG_KEY,
+      JSON.stringify({
+        name: "Sexta",
+        breakInterval: 10,
+        breakDuration: 5,
+        primaryColor: "#FF6B6B",
+        blindStructure: withAnte.levels,
+        structureId: "ante",
+      }),
+    );
+    render(<App />);
+  };
+  const submit = () => fireEvent.submit(document.querySelector("form")!);
+  const started = () => JSON.parse(localStorage.getItem(KEY)!);
+  const nextCard = () => screen.getByRole("heading", { name: "Próximo Nível" }).parentElement!;
+  const historyCard = () =>
+    screen.getByText("Histórico de Níveis").closest(".card") as HTMLElement;
+  // The ante of the current level, on the clock: the "Ante" caption under its value.
+  const clockAnte = () => screen.queryByText("Ante", { exact: true });
+
+  it("previews the ante only for the levels that have one", () => {
+    startTournament();
+
+    expect(screen.getByText("25/50")).toBeTruthy();
+    expect(screen.getAllByText(/^Ante \d+$/).map((e) => e.textContent)).toEqual([
+      "Ante 75",
+      "Ante 150",
+    ]);
+  });
+
+  it("shows the ante of the current and the next level only when they have one", () => {
+    startTournament();
+    submit();
+
+    expect(clockAnte()).toBeNull();
+    expect(within(nextCard()).getByText("Ante 75")).toBeTruthy();
+
+    fireEvent.click(button("Próximo Nível"));
+
+    expect(clockAnte()).toBeTruthy();
+    expect(clockAnte()!.previousElementSibling!.textContent).toBe("75");
+    expect(within(nextCard()).getByText("Ante 150")).toBeTruthy();
+  });
+
+  it("keeps and shows the ante of each played level, also after a refresh", () => {
+    startTournament();
+    submit();
+    fireEvent.click(button("Próximo Nível"));
+    fireEvent.click(button("Próximo Nível"));
+
+    expect(started().history.map((h: any) => h.ante)).toEqual([undefined, 75]);
+    expect(within(historyCard()).getAllByText(/^Ante/).map((e) => e.textContent)).toEqual([
+      "Ante 75",
+    ]);
+
+    refresh();
+
+    expect(clockAnte()!.previousElementSibling!.textContent).toBe("150");
+    expect(within(historyCard()).getAllByText(/^Ante/).map((e) => e.textContent)).toEqual([
+      "Ante 75",
+    ]);
+  });
+
+  it("opens a tournament and history saved without ante as levels without ante", () => {
+    const levels = withAnte.levels.map(({ ante: _, ...level }) => level);
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        config: { name: "Antigo", breakInterval: 10, breakDuration: 5, primaryColor: "#FF6B6B", blindStructure: levels },
+        currentLevel: 2,
+        timeRemaining: 600,
+        isRunning: false,
+        isBreak: false,
+        history: [{
+          level: 1, smallBlind: 25, bigBlind: 50, duration: 15,
+          startTime: "2026-11-06T11:00:00.000Z", endTime: "2026-11-06T11:15:00.000Z",
+        }],
+        startTime: "2026-11-06T11:15:00.000Z",
+      }),
+    );
+    render(<App />);
+
+    expect(screen.getByText("10:00")).toBeTruthy();
+    expect(clockAnte()).toBeNull();
+    expect(screen.queryByText(/^Ante/)).toBeNull();
   });
 });

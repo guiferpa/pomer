@@ -77,6 +77,7 @@ export const translations = {
     noActiveLevel: "Nenhum nível ativo",
     smallBlind: "Small Blind",
     bigBlind: "Big Blind",
+    ante: "Ante",
     settings: "Configurações",
 
     // Audio
@@ -186,6 +187,7 @@ export const translations = {
     noActiveLevel: "Ningún nivel activo",
     smallBlind: "Ciega Pequeña",
     bigBlind: "Ciega Grande",
+    ante: "Ante",
     settings: "Configuraciones",
 
     // Audio
@@ -294,6 +296,7 @@ export const translations = {
     noActiveLevel: "No active level",
     smallBlind: "Small Blind",
     bigBlind: "Big Blind",
+    ante: "Ante",
     settings: "Settings",
 
     // Audio

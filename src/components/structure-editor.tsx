@@ -41,6 +41,7 @@ interface StructureEditorProps {
 const LEVEL_LABELS: Record<LevelField, TranslationKeys> = {
   smallBlind: "smallBlind",
   bigBlind: "bigBlind",
+  ante: "ante",
   duration: "levelDurationShort",
 };
 
@@ -155,7 +156,8 @@ export const StructureEditor: React.FC<StructureEditorProps> = ({
             ✕
           </Button>
         </div>
-        <Fieldset.Group className="grid grid-cols-3 gap-2">
+        {/* No celular, 2×2: os blinds em cima, ante e duração embaixo. */}
+        <Fieldset.Group className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {LEVEL_FIELDS.map((field) => (
             <TextField
               key={field}
