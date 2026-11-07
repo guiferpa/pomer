@@ -66,3 +66,50 @@ export const deduceStructure = (levels: BlindLevel[]): StructureName =>
       STRUCTURES[name].levels === levels.length &&
       STRUCTURES[name].firstBlind === levels[0]?.smallBlind,
   ) ?? DEFAULT_STRUCTURE;
+
+// --- Estruturas criadas pelo organizador ---
+
+export const LEVEL_FIELDS = ["smallBlind", "bigBlind", "duration"] as const;
+
+export type LevelField = (typeof LEVEL_FIELDS)[number];
+
+export const DURATION_LIMITS = { min: 1, max: 60 } as const;
+
+export type LevelError =
+  | "required"
+  | "notPositiveInteger"
+  | "bigBelowSmall"
+  | "durationOutOfRange";
+
+export type LevelErrors = Partial<Record<LevelField, LevelError>>;
+
+const isPositiveInteger = (value: number) =>
+  Number.isInteger(value) && value > 0;
+
+// Os problemas de um nível já em números. A ordem crescente dos blinds entre
+// níveis não é exigida.
+export const levelErrors = (level: {
+  smallBlind: number;
+  bigBlind: number;
+  duration: number;
+}): LevelErrors => {
+  const errors: LevelErrors = {};
+
+  if (!isPositiveInteger(level.smallBlind)) {
+    errors.smallBlind = "notPositiveInteger";
+  }
+  if (!isPositiveInteger(level.bigBlind)) {
+    errors.bigBlind = "notPositiveInteger";
+  } else if (!errors.smallBlind && level.bigBlind < level.smallBlind) {
+    errors.bigBlind = "bigBelowSmall";
+  }
+  if (
+    !Number.isInteger(level.duration) ||
+    level.duration < DURATION_LIMITS.min ||
+    level.duration > DURATION_LIMITS.max
+  ) {
+    errors.duration = "durationOutOfRange";
+  }
+
+  return errors;
+};
