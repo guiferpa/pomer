@@ -92,6 +92,15 @@ export const structureToDraft = (structure: BlindStructure): StructureDraft => (
   })),
 });
 
+// Se dois rascunhos têm o mesmo id, nome e texto em cada campo dos níveis.
+export const sameDraft = (a: StructureDraft, b: StructureDraft): boolean =>
+  a.id === b.id &&
+  a.name === b.name &&
+  a.levels.length === b.levels.length &&
+  a.levels.every((level, i) =>
+    LEVEL_FIELDS.every((field) => level[field] === b.levels[i][field]),
+  );
+
 // O texto de um inteiro positivo, ou nada.
 const positiveText = (text: string, times: number): string => {
   const value = Number(text.trim());

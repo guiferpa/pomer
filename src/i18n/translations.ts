@@ -114,6 +114,10 @@ export const translations = {
     deleteStructureTitle: "Excluir estrutura",
     deleteStructureMessage:
       "Excluir a estrutura \"{name}\"? Um torneio em andamento não muda.",
+    discardChangesTitle: "Descartar mudanças?",
+    discardChangesMessage: "As mudanças nesta estrutura ainda não foram salvas e serão perdidas.",
+    discard: "Descartar",
+    keepEditing: "Continuar editando",
   },
 
   es: {
@@ -231,6 +235,10 @@ export const translations = {
     deleteStructureTitle: "Eliminar estructura",
     deleteStructureMessage:
       "¿Eliminar la estructura \"{name}\"? Un torneo en curso no cambia.",
+    discardChangesTitle: "¿Descartar los cambios?",
+    discardChangesMessage: "Los cambios en esta estructura aún no se guardaron y se perderán.",
+    discard: "Descartar",
+    keepEditing: "Seguir editando",
   },
 
   en: {
@@ -347,6 +355,10 @@ export const translations = {
     deleteStructureTitle: "Delete structure",
     deleteStructureMessage:
       "Delete the structure \"{name}\"? A running tournament does not change.",
+    discardChangesTitle: "Discard changes?",
+    discardChangesMessage: "The changes to this structure have not been saved yet and will be lost.",
+    discard: "Discard",
+    keepEditing: "Keep editing",
   },
 };
 
