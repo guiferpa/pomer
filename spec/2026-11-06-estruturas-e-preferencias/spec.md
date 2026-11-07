@@ -1,6 +1,6 @@
 ---
 title: Estruturas de blinds próprias e preferências do aplicativo
-status: aprovada
+status: em-desenvolvimento
 solicitada-em: 2026-11-06
 substitui:
 ---
