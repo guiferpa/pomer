@@ -37,10 +37,12 @@ const isObject = (value: unknown): value is Record<string, any> =>
 const isNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+// O ante é opcional: níveis gravados antes dele continuam valendo.
 const isUsableLevel = (level: unknown): boolean =>
   isObject(level) &&
   isNumber(level.smallBlind) &&
   isNumber(level.bigBlind) &&
+  (level.ante === undefined || isNumber(level.ante)) &&
   isNumber(level.duration);
 
 const hasUsableLevels = (blindStructure: unknown): boolean =>

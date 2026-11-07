@@ -5,7 +5,16 @@ import type {
   StructureDraft,
 } from "@/types/tournament";
 
-export const LEVEL_FIELDS = ["smallBlind", "bigBlind", "duration"] as const;
+// Na ordem do editor: no celular, os blinds em cima, ante e duração embaixo.
+export const LEVEL_FIELDS = [
+  "smallBlind",
+  "bigBlind",
+  "ante",
+  "duration",
+] as const;
+
+// O ante é o único campo do nível que pode ficar vazio.
+const OPTIONAL_FIELDS: readonly LevelField[] = ["ante"];
 
 export type LevelField = (typeof LEVEL_FIELDS)[number];
 
@@ -23,10 +32,11 @@ const isPositiveInteger = (value: number) =>
   Number.isInteger(value) && value > 0;
 
 // Os problemas de um nível já em números. A ordem crescente dos blinds entre
-// níveis não é exigida.
+// níveis não é exigida, e o ante, quando há, não depende dos blinds.
 export const levelErrors = (level: {
   smallBlind: number;
   bigBlind: number;
+  ante?: unknown;
   duration: number;
 }): LevelErrors => {
   const errors: LevelErrors = {};
@@ -38,6 +48,12 @@ export const levelErrors = (level: {
     errors.bigBlind = "notPositiveInteger";
   } else if (!errors.smallBlind && level.bigBlind < level.smallBlind) {
     errors.bigBlind = "bigBelowSmall";
+  }
+  if (
+    level.ante !== undefined &&
+    !(typeof level.ante === "number" && isPositiveInteger(level.ante))
+  ) {
+    errors.ante = "notPositiveInteger";
   }
   if (
     !Number.isInteger(level.duration) ||
@@ -53,6 +69,7 @@ export const levelErrors = (level: {
 export const emptyLevel = (): LevelDraft => ({
   smallBlind: "",
   bigBlind: "",
+  ante: "",
   duration: "",
 });
 
@@ -71,11 +88,13 @@ const positiveText = (text: string, times: number): string => {
     : "";
 };
 
-// O nível sugerido depois de `previous`: o dobro dos blinds e a mesma duração.
-// O que não for um inteiro positivo no nível anterior fica vazio.
+// O nível sugerido depois de `previous`: o dobro dos blinds e do ante e a mesma
+// duração. O que não for um inteiro positivo no nível anterior fica vazio, e
+// sem ante no anterior o novo também vem sem.
 export const suggestNextLevel = (previous: LevelDraft): LevelDraft => ({
   smallBlind: positiveText(previous.smallBlind, 2),
   bigBlind: positiveText(previous.bigBlind, 2),
+  ante: positiveText(previous.ante, 2),
   duration: positiveText(previous.duration, 1),
 });
 
@@ -110,15 +129,19 @@ export const validateStructure = (
   }
 
   const levels = draft.levels.map((level, i) => {
-    const numbers = {
+    const ante = level.ante.trim();
+    const numbers: Omit<BlindLevel, "level"> = {
       smallBlind: Number(level.smallBlind.trim()),
       bigBlind: Number(level.bigBlind.trim()),
+      ...(ante === "" ? {} : { ante: Number(ante) }),
       duration: Number(level.duration.trim()),
     };
     const found = levelErrors(numbers);
 
     for (const field of LEVEL_FIELDS) {
-      if (level[field].trim() === "") found[field] = "required";
+      if (!OPTIONAL_FIELDS.includes(field) && level[field].trim() === "") {
+        found[field] = "required";
+      }
     }
     errors.levels.push(found);
 
