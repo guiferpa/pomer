@@ -68,6 +68,32 @@ describe("loadTournament", () => {
     expect(loadTournament(NOW)).toEqual({ status: "saved", state: saved });
   });
 
+  it("brings back the ante of the levels and of the history entries that have one", () => {
+    const entry = {
+      level: 1,
+      smallBlind: 25,
+      bigBlind: 50,
+      ante: 50,
+      startTime: new Date("2026-01-01T11:40:00Z"),
+      endTime: new Date("2026-01-01T12:00:00Z"),
+      duration: 20,
+    };
+    const saved = tournament({
+      config: config({
+        blindStructure: [
+          { level: 1, smallBlind: 25, bigBlind: 50, ante: 50, duration: 20 },
+          { level: 2, smallBlind: 50, bigBlind: 100, duration: 15 },
+        ],
+      }),
+      currentLevel: 2,
+      history: [entry],
+    });
+
+    store(saved);
+
+    expect(loadTournament(NOW)).toEqual({ status: "saved", state: saved });
+  });
+
   it("reports broken JSON as invalid", () => {
     localStorage.setItem(TOURNAMENT_KEY, "{not json");
 
@@ -88,6 +114,7 @@ describe("loadTournament", () => {
     ["levels that are not a list", tournament({ config: config({ blindStructure: {} as any }) })],
     ["a level without blinds", tournament({ config: config({ blindStructure: [{ level: 1 } as any] }) })],
     ["a level with text blinds", tournament({ config: config({ blindStructure: [{ ...usable, smallBlind: "25" as any }] }) })],
+    ["a level with a text ante", tournament({ config: config({ blindStructure: [{ ...usable, ante: "50" as any }] }) })],
     ["a level that is null", tournament({ config: config({ blindStructure: [null as any] }) })],
     ["a current level that is not a number", tournament({ currentLevel: "2" as any })],
     ["no current level", tournament({ currentLevel: undefined as any })],
@@ -307,6 +334,10 @@ describe("blind structures", () => {
     ["a blind that is not positive", structure({ levels: [{ ...level, smallBlind: 0 }] })],
     ["a big blind below the small blind", structure({ levels: [{ ...level, bigBlind: 10 }] })],
     ["a duration over 60", structure({ levels: [{ ...level, duration: 61 }] })],
+    ["an ante of 0", structure({ levels: [{ ...level, ante: 0 }] })],
+    ["an ante that is not an integer", structure({ levels: [{ ...level, ante: 2.5 }] })],
+    ["an ante that is not a number", { ...structure(), levels: [{ ...level, ante: "50" }] }],
+    ["a null ante", { ...structure(), levels: [{ ...level, ante: null }] }],
   ])("drops a stored structure with %s and keeps the others", (_, broken) => {
     localStorage.setItem(
       STRUCTURES_KEY,
@@ -314,6 +345,19 @@ describe("blind structures", () => {
     );
 
     expect(loadStructures()).toEqual([structure({ id: "good" })]);
+  });
+
+  it("brings back the ante of the levels that have one", () => {
+    const withAnte = structure({
+      levels: [
+        { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+        { level: 2, smallBlind: 50, bigBlind: 100, ante: 100, duration: 20 },
+      ],
+    });
+
+    saveStructure(withAnte);
+
+    expect(loadStructures()).toEqual([withAnte]);
   });
 
   it("does not require blinds to go up between levels", () => {

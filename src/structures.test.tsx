@@ -47,7 +47,7 @@ const type = (input: HTMLInputElement, value: string) =>
   fireEvent.change(input, { target: { value } });
 
 // The level fields of the n-th level (1-based).
-const levelField = (n: number, label: "Small Blind" | "Big Blind" | "Duração (min)") =>
+const levelField = (n: number, label: "Small Blind" | "Big Blind" | "Ante" | "Duração (min)") =>
   within(screen.getByRole("group", { name: `Nível ${n}` })).getByRole("textbox", {
     name: label,
   }) as HTMLInputElement;
@@ -263,6 +263,91 @@ describe("validating a structure on save", () => {
 
     expect(levelField(1, "Duração (min)").getAttribute("aria-invalid")).not.toBe("true");
     expect(levelField(2, "Duração (min)").getAttribute("aria-invalid")).toBe("true");
+  });
+});
+
+describe("ante in the structure editor", () => {
+  const startWith = (ante: string) => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+    type(field("Nome da estrutura"), "Casa");
+    fillLevel(1, "25", "50", "15");
+    type(levelField(1, "Ante"), ante);
+  };
+
+  it("has an empty, optional ante field in each level", () => {
+    openStructures();
+    fireEvent.click(button("Nova estrutura"));
+
+    expect(levelField(1, "Ante").value).toBe("");
+    expect(levelField(1, "Ante").getAttribute("aria-required")).not.toBe("true");
+  });
+
+  it("saves a level with an empty ante as a level without ante", () => {
+    startWith("  ");
+    fireEvent.click(button("Salvar"));
+
+    expect(stored()[0].levels).toEqual([
+      { level: 1, smallBlind: 25, bigBlind: 50, duration: 15 },
+    ]);
+  });
+
+  it("saves the ante of the level, with no relation required to the blinds", () => {
+    startWith("500");
+    fireEvent.click(button("Salvar"));
+
+    expect(stored()[0].levels).toEqual([
+      { level: 1, smallBlind: 25, bigBlind: 50, ante: 500, duration: 15 },
+    ]);
+
+    refresh();
+    expect(listed()).toEqual([expect.stringContaining("Casa")]);
+  });
+
+  it.each(["0", "2.5", "-10", "abc"])(
+    "shows the error on an ante of %s in the field and saves nothing",
+    (ante) => {
+      startWith(ante);
+      fireEvent.click(button("Salvar"));
+
+      expect(levelField(1, "Ante").getAttribute("aria-invalid")).toBe("true");
+      expect(
+        within(screen.getByRole("group", { name: "Nível 1" })).getByText(
+          "Use um número inteiro maior que zero.",
+        ),
+      ).toBeTruthy();
+      expect(localStorage.getItem(STRUCTURES_KEY)).toBeNull();
+
+      type(levelField(1, "Ante"), "50");
+      expect(levelField(1, "Ante").getAttribute("aria-invalid")).not.toBe("true");
+    },
+  );
+
+  it("suggests the next level with double the ante, or no ante when the previous had none", () => {
+    startWith("");
+    fireEvent.click(button("Adicionar nível"));
+
+    expect(levelField(2, "Ante").value).toBe("");
+
+    type(levelField(2, "Ante"), "75");
+    fireEvent.click(button("Adicionar nível"));
+
+    expect(levelField(3, "Ante").value).toBe("150");
+  });
+
+  it("names the ante field in Spanish and English", () => {
+    for (const [language, group] of [["es", "Nivel 1"], ["en", "Level 1"]] as const) {
+      localStorage.setItem("pomer-language", language);
+      window.location.hash = "#/estruturas";
+      render(<App />);
+      fireEvent.click(screen.getAllByRole("button")
+        .find((b) => /Nueva estructura|New structure/.test(b.textContent ?? ""))!);
+
+      expect(
+        within(screen.getByRole("group", { name: group })).getByRole("textbox", { name: "Ante" }),
+      ).toBeTruthy();
+      cleanup();
+    }
   });
 });
 
