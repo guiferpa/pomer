@@ -1,36 +1,25 @@
 import type { TranslationKeys } from "@/i18n/translations";
-import {
-  STRUCTURE_NAMES,
-  type StructureName,
-  type TournamentConfig,
-} from "@/types/tournament";
+import type { BlindStructure, TournamentConfig } from "@/types/tournament";
 
 import React, { useState } from "react";
 import {
   Alert,
   Button,
   Card,
-  Description,
   FieldError,
   Input,
   Label,
   ListBox,
   Select,
   TextField,
-  useTheme,
 } from "@heroui/react";
 
 import { Logo } from "./logo";
-import { LanguageSelector } from "./language-selector";
+import { SettingsMenu } from "./settings-menu";
+import { ManageStructuresLink } from "./structures-screen";
 
-import {
-  DEFAULT_STRUCTURE,
-  buildStructure,
-  deduceStructure,
-  isStructureName,
-  structureDuration,
-} from "@/utils/structures";
 import { useI18n } from "@/hooks";
+import { loadStructures } from "@/utils/persistence";
 
 interface ConfigFormProps {
   onStart: (config: TournamentConfig) => void;
@@ -40,27 +29,25 @@ interface ConfigFormProps {
 }
 
 // Os campos numéricos guardam o texto digitado, que só vira número ao iniciar.
-type NumberField = "levelDuration" | "breakInterval" | "breakDuration";
+type NumberField = "breakInterval" | "breakDuration";
 
-type Draft = Omit<TournamentConfig, "blindStructure" | "structure" | NumberField> &
-  Record<NumberField, string> & {
-    structure: StructureName;
-  };
+type Draft = Omit<TournamentConfig, "blindStructure" | NumberField> &
+  Record<NumberField, string>;
 
 const NUMBER_LIMITS: Record<NumberField, { min: number; max: number }> = {
-  levelDuration: { min: 1, max: 60 },
   breakInterval: { min: 1, max: 10 },
   breakDuration: { min: 1, max: 30 },
 };
 
 const NUMBER_FIELDS = Object.keys(NUMBER_LIMITS) as NumberField[];
 
-type FieldErrors = Partial<Record<NumberField, string>>;
+type FieldErrors = Partial<Record<NumberField | "structureId", string>>;
 
 type Translate = (key: TranslationKeys) => string;
 
-const validateNumbers = (
+const validate = (
   draft: Draft,
+  chosen: BlindStructure | undefined,
   t: Translate,
 ): FieldErrors => {
   const errors: FieldErrors = {};
@@ -78,42 +65,35 @@ const validateNumbers = (
         .replace("{max}", String(max));
     }
   }
+  if (!chosen) errors.structureId = t("structureRequired");
 
   return errors;
 };
 
-const toDraft = (config?: TournamentConfig): Draft => {
+// A estrutura escolhida só volta se ainda estiver salva.
+const toDraft = (
+  structures: BlindStructure[],
+  config?: TournamentConfig,
+): Draft => {
   if (!config) {
     return {
       name: "Torneio Pomer",
-      levelDuration: String(structureDuration(DEFAULT_STRUCTURE)),
       breakInterval: "3",
       breakDuration: "10",
-      structure: DEFAULT_STRUCTURE,
       primaryColor: "#006FEE",
     };
   }
 
-  const { blindStructure, structure, ...rest } = config;
+  const { name, primaryColor, structureId } = config;
 
   return {
-    ...rest,
-    levelDuration: String(config.levelDuration),
+    name,
+    primaryColor,
     breakInterval: String(config.breakInterval),
     breakDuration: String(config.breakDuration),
-    structure: structure ?? deduceStructure(blindStructure),
+    ...(structures.some((s) => s.id === structureId) ? { structureId } : {}),
   };
 };
-
-const STRUCTURE_LABELS: Record<StructureName, TranslationKeys> = {
-  small: "structureSmall",
-  medium: "structureMedium",
-  large: "structureLarge",
-  turbo: "structureTurbo",
-};
-
-const getStructureOptions = (t: Translate) =>
-  STRUCTURE_NAMES.map((key) => ({ key, label: t(STRUCTURE_LABELS[key]) }));
 
 const getColorOptions = (t: Translate) => [
   { key: "#006FEE", label: t("blue"), color: "#006FEE" },
@@ -126,31 +106,23 @@ const getColorOptions = (t: Translate) => [
   { key: "#FFD43B", label: t("yellow"), color: "#FFD43B" },
 ];
 
-const getThemeOptions = (t: Translate) => [
-  { key: "light", label: t("lightMode") },
-  { key: "dark", label: t("darkMode") },
-];
-
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   onStart,
   initialConfig,
   savedTournamentLost = false,
 }) => {
-  const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
-  // O que o organizador escolheu e digitou. A configuração do torneio, com os
-  // níveis, só é montada ao iniciar.
-  const [draft, setDraft] = useState<Draft>(() => toDraft(initialConfig));
-  const { structure, primaryColor: selectedColor } = draft;
-  // Enquanto a duração está vazia ou inválida, a prévia usa a da estrutura.
-  const previewDuration = Number(draft.levelDuration);
-  const preview = buildStructure(
-    structure,
-    Number.isInteger(previewDuration) && previewDuration > 0
-      ? previewDuration
-      : structureDuration(structure),
+  // As estruturas salvas, na ordem da tela de estruturas.
+  const [structures] = useState<BlindStructure[]>(loadStructures);
+  // O que o organizador escolheu e digitou. A configuração do torneio, com a
+  // cópia dos níveis, só é montada ao iniciar.
+  const [draft, setDraft] = useState<Draft>(() =>
+    toDraft(structures, initialConfig),
   );
+  const { primaryColor: selectedColor } = draft;
+  const chosen = structures.find((s) => s.id === draft.structureId);
+  const preview = chosen?.levels ?? [];
 
   const [errors, setErrors] = useState<FieldErrors>({});
 
@@ -163,25 +135,26 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     setErrors(({ [field]: _, ...rest }) => rest);
   };
 
-  // Cada estrutura traz a própria duração e sobrescreve a que estava digitada.
-  const handleStructureChange = (name: StructureName) =>
-    update({ structure: name, levelDuration: String(structureDuration(name)) });
+  const handleStructureChange = (structureId: string) => {
+    update({ structureId });
+    setErrors(({ structureId: _, ...rest }) => rest);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const found = validateNumbers(draft, t);
+    const found = validate(draft, chosen, t);
 
     setErrors(found);
-    if (Object.keys(found).length > 0) {
+    if (!chosen || Object.keys(found).length > 0) {
       return;
     }
 
     onStart({
       ...draft,
-      levelDuration: Number(draft.levelDuration),
       breakInterval: Number(draft.breakInterval),
       breakDuration: Number(draft.breakDuration),
-      blindStructure: preview,
+      // O torneio guarda a própria cópia dos níveis.
+      blindStructure: chosen.levels,
     });
   };
 
@@ -189,9 +162,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     <div className="w-full max-w-2xl mx-auto flex flex-col">
       <Card className="flex-1 flex flex-col">
         <Card.Header className="flex flex-col gap-1 flex-shrink-0">
-          <div className="flex items-center justify-center gap-2">
+          <div className="relative flex items-center justify-center gap-2">
             <Logo color={selectedColor} size={32} />
             <h1 className="text-2xl font-bold">{t("appName")}</h1>
+            <div className="absolute right-0">
+              <SettingsMenu />
+            </div>
           </div>
           <p className="text-center text-muted">
             {t("tournamentConfiguration")}
@@ -220,7 +196,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               />
             </TextField>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {NUMBER_FIELDS.map((field) => (
                 <TextField
                   key={field}
@@ -285,108 +261,87 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
               </p>
             </div>
 
-            <Select
-              variant="secondary"
-              value={resolvedTheme}
-              onChange={(key) => {
-                if (key) {
-                  setTheme(String(key));
-                }
-              }}
-            >
-              <Label className="block text-sm font-medium mb-2">
-                {t("interfaceTheme")}
-              </Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Description className="block text-xs text-muted mt-2">
-                {t("chooseThemeDescription")}
-              </Description>
-              <Select.Popover>
-                <ListBox>
-                  {getThemeOptions(t).map((option) => (
-                    <ListBox.Item
-                      key={option.key}
-                      id={option.key}
-                      textValue={option.label}
-                    >
-                      {option.label}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-
-            <LanguageSelector />
-
-            <Select
-              variant="secondary"
-              placeholder={t("selectStructurePlaceholder")}
-              value={structure}
-              onChange={(key) => {
-                if (isStructureName(key)) {
-                  handleStructureChange(key);
-                }
-              }}
-            >
-              <Label className="block text-sm font-medium mb-2">
-                {t("blindStructure")}
-              </Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Select.Popover>
-                <ListBox>
-                  {getStructureOptions(t).map((option) => (
-                    <ListBox.Item
-                      key={option.key}
-                      id={option.key}
-                      textValue={option.label}
-                    >
-                      {option.label}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-
-            <div>
-              <h3 className="text-lg font-semibold mb-3">
-                {t("structurePreview")}
-              </h3>
-              <div className="grid grid-cols-1 gap-2">
-                {preview.slice(0, 3).map((level) => (
-                  <div
-                    key={level.level}
-                    className="flex justify-between items-center p-2 bg-surface-secondary rounded-lg"
-                  >
-                    <span className="font-medium">
-                      {t("level")} {level.level}
-                    </span>
-                    <span
-                      className="font-bold"
-                      style={{
-                        color: selectedColor,
-                        transition: "color 0.8s ease-in-out",
-                      }}
-                    >
-                      {level.smallBlind}/{level.bigBlind}
-                    </span>
+            {structures.length === 0 ? (
+              <Alert status="accent">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Title>{t("blindStructure")}</Alert.Title>
+                  <Alert.Description>{t("createFirstStructure")}</Alert.Description>
+                  <ManageStructuresLink className="mt-2" />
+                </Alert.Content>
+              </Alert>
+            ) : (
+              <>
+                <Select
+                  isInvalid={Boolean(errors.structureId)}
+                  placeholder={t("selectStructurePlaceholder")}
+                  validationBehavior="aria"
+                  value={draft.structureId ?? null}
+                  variant="secondary"
+                  onChange={(key) => {
+                    if (typeof key === "string") handleStructureChange(key);
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <Label className="text-sm font-medium">
+                      {t("blindStructure")}
+                    </Label>
+                    <ManageStructuresLink className="text-sm" />
                   </div>
-                ))}
-                {preview.length > 3 && (
-                  <p className="text-center text-muted text-sm">
-                    ... {t("andMore")} {preview.length - 3}{" "}
-                    {t("levels")}
-                  </p>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <FieldError>{errors.structureId}</FieldError>
+                  <Select.Popover>
+                    <ListBox>
+                      {structures.map((option) => (
+                        <ListBox.Item
+                          key={option.id}
+                          id={option.id}
+                          textValue={option.name}
+                        >
+                          {option.name}
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+
+                {chosen && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3">
+                      {t("structurePreview")}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-2">
+                      {preview.map((level) => (
+                        <div
+                          key={level.level}
+                          className="flex justify-between items-center gap-2 p-2 bg-surface-secondary rounded-lg"
+                        >
+                          <span className="font-medium">
+                            {t("level")} {level.level}
+                          </span>
+                          <span
+                            className="font-bold"
+                            style={{
+                              color: selectedColor,
+                              transition: "color 0.8s ease-in-out",
+                            }}
+                          >
+                            {level.smallBlind}/{level.bigBlind}
+                          </span>
+                          <span className="text-sm text-muted">
+                            {level.duration} min
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </div>
-            </div>
+              </>
+            )}
           </div>
 
             <div className="pt-6">
@@ -398,6 +353,7 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                   color: "white",
                   transition: "background-color 0.8s ease-in-out",
                 }}
+                isDisabled={structures.length === 0}
                 type="submit"
                 variant="primary"
               >

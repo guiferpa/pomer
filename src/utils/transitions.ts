@@ -16,11 +16,12 @@ export interface TransitionResult {
   transitioned: boolean;
 }
 
-// Duração de um nível, em minutos, com o padrão da configuração como reserva.
+// Duração de um nível, em minutos: cada nível tem a sua. Vale para um nível que
+// existe na estrutura.
 export const levelDurationMinutes = (
   config: TournamentConfig,
   level: number,
-): number => config.blindStructure[level - 1]?.duration || config.levelDuration;
+): number => config.blindStructure[level - 1].duration;
 
 // Duração do nível ou intervalo atual, em minutos. Vale para um nível que existe
 // na estrutura.

@@ -4,5 +4,5 @@ export * from "./countdown";
 export * from "./main-layout";
 export * from "./confirm-modal";
 export * from "./logo";
-export * from "./language-selector";
 export * from "./settings-menu";
+export * from "./structures-screen";

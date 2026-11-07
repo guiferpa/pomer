@@ -2,14 +2,21 @@ import type { TournamentConfig } from "@/types/tournament";
 
 import { useEffect, useState } from "react";
 
-import { useTournament } from "@/hooks";
+import { useRoute, useTournament } from "@/hooks";
 import { trackEvent } from "@/utils/analytics";
-import { MainLayout, ConfigForm, Countdown, Logo } from "@/components";
+import {
+  MainLayout,
+  ConfigForm,
+  Countdown,
+  Logo,
+  StructuresScreen,
+} from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { loadConfig, saveConfig } from "@/utils/persistence";
 
 function App() {
   const [savedConfig, setSavedConfig] = useState(loadConfig);
+  const { route, navigate } = useRoute();
 
   const {
     state,
@@ -54,7 +61,9 @@ function App() {
   return (
     <I18nProvider>
       <MainLayout>
-        {!isConfigured ? (
+        {route === "structures" ? (
+          <StructuresScreen onBack={() => navigate("main")} />
+        ) : !isConfigured ? (
           <ConfigForm
             initialConfig={savedConfig || undefined}
             savedTournamentLost={showLostWarning}

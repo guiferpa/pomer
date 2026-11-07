@@ -1,16 +1,19 @@
 import type {
+  BlindLevel,
+  BlindStructure,
   LevelHistory,
   TournamentConfig,
   TournamentState,
 } from "@/types/tournament";
 
 import { repairSavedState } from "@/utils/transitions";
-import { deduceStructure, isStructureName } from "@/utils/structures";
+import { levelErrors } from "@/utils/structures";
 
-// Único lugar que lê e grava o torneio e a última configuração. O tema e o
-// idioma ficam com quem cuida deles.
+// Único lugar que lê e grava o torneio, a última configuração e as estruturas
+// de blinds. O tema e o idioma ficam com quem cuida deles.
 const TOURNAMENT_KEY = "pomer-tournament-state";
 const CONFIG_KEY = "pomer-config";
+const STRUCTURES_KEY = "pomer-structures";
 
 export type LoadedTournament =
   | { status: "saved"; state: TournamentState }
@@ -97,32 +100,81 @@ export const saveTournament = (state: TournamentState): void => {
   }
 };
 
-// O nome da estrutura é opcional na leitura: configurações antigas não o
-// guardavam, e ele é deduzido depois.
-const isConfig = (
-  parsed: unknown,
-): parsed is Omit<TournamentConfig, "structure"> & { structure?: unknown } =>
+// Configurações da versão anterior também guardavam a duração dos níveis e o
+// nome de uma estrutura pronta: elas continuam válidas, e esses campos são
+// ignorados.
+const isConfig = (parsed: unknown): parsed is Record<string, any> =>
   isObject(parsed) &&
   typeof parsed.name === "string" &&
-  isNumber(parsed.levelDuration) &&
   isNumber(parsed.breakInterval) &&
   isNumber(parsed.breakDuration) &&
   typeof parsed.primaryColor === "string" &&
   hasUsableLevels(parsed.blindStructure);
 
-// A última configuração usada, para preencher o formulário, sempre com o nome da
-// estrutura. Inválida, é ignorada e o formulário usa os valores padrão.
+// A última configuração usada, para preencher o formulário. Inválida, é
+// ignorada e o formulário usa os valores padrão. A estrutura escolhida só volta
+// se ainda estiver salva.
 export const loadConfig = (): TournamentConfig | null => {
   const raw = localStorage.getItem(CONFIG_KEY);
   const parsed = raw === null ? null : parse(raw);
 
   if (!isConfig(parsed)) return null;
 
-  return isStructureName(parsed.structure)
-    ? { ...parsed, structure: parsed.structure }
-    : { ...parsed, structure: deduceStructure(parsed.blindStructure) };
+  const { name, breakInterval, breakDuration, primaryColor, blindStructure } =
+    parsed;
+  const config: TournamentConfig = {
+    name,
+    breakInterval,
+    breakDuration,
+    primaryColor,
+    blindStructure,
+  };
+  const chosen = loadStructures().some((s) => s.id === parsed.structureId);
+
+  return chosen ? { ...config, structureId: parsed.structureId } : config;
 };
 
 export const saveConfig = (config: TournamentConfig): void => {
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+};
+
+const isStoredLevel = (level: unknown): boolean =>
+  isUsableLevel(level) &&
+  Object.keys(levelErrors(level as BlindLevel)).length === 0;
+
+const isStructure = (parsed: unknown): parsed is BlindStructure =>
+  isObject(parsed) &&
+  typeof parsed.id === "string" &&
+  parsed.id !== "" &&
+  typeof parsed.name === "string" &&
+  parsed.name.trim() !== "" &&
+  typeof parsed.updatedAt === "string" &&
+  !Number.isNaN(Date.parse(parsed.updatedAt)) &&
+  Array.isArray(parsed.levels) &&
+  parsed.levels.length > 0 &&
+  parsed.levels.every(isStoredLevel);
+
+const byMostRecent = (a: BlindStructure, b: BlindStructure) =>
+  Date.parse(b.updatedAt) - Date.parse(a.updatedAt);
+
+// As estruturas salvas, da editada mais recentemente para a mais antiga. Cada
+// estrutura inválida é ignorada sem aviso, e as demais seguem valendo.
+export const loadStructures = (): BlindStructure[] => {
+  const raw = localStorage.getItem(STRUCTURES_KEY);
+  const parsed = raw === null ? null : parse(raw);
+
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed.filter(isStructure).sort(byMostRecent);
+};
+
+// Grava uma estrutura nova ou substitui a de mesmo id. Quem chama decide o id e
+// a data da edição.
+export const saveStructure = (structure: BlindStructure): void => {
+  const others = loadStructures().filter((s) => s.id !== structure.id);
+
+  localStorage.setItem(
+    STRUCTURES_KEY,
+    JSON.stringify([structure, ...others].sort(byMostRecent)),
+  );
 };

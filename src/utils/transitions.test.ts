@@ -15,11 +15,15 @@ import {
 const START = new Date("2026-01-01T12:00:00Z");
 const NOW = new Date("2026-01-01T12:07:00Z"); // 420 seconds after START
 
+// Saved by the previous version, which also kept one duration for every level.
+// It is ignored, so a level counted with it shows up.
+const previousVersion = { levelDuration: 99 };
+
 // Each level has its own duration, so inheriting the wrong one shows up.
 const tournament = (over: Partial<TournamentState> = {}): TournamentState => ({
   config: {
+    ...previousVersion,
     name: "T",
-    levelDuration: 99,
     breakInterval: 2,
     breakDuration: 5,
     primaryColor: "#FF6B6B",

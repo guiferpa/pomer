@@ -44,7 +44,6 @@ export const useTournament = () => {
     return {
       config: {
         name: "Torneio Pomer",
-        levelDuration: 20,
         breakInterval: 3,
         breakDuration: 10,
         blindStructure: [],
