@@ -9,7 +9,7 @@ Uma lista nomeada de níveis, criada pelo organizador, que define como os blinds
 _Evite_: estrutura pronta, preset, tabela de blinds
 
 **Nível**:
-Uma etapa da estrutura de blinds, com small blind, big blind e duração própria.
+Uma etapa da estrutura de blinds, com small blind, big blind, ante opcional e duração própria.
 _Evite_: rodada, blind level
 
 **Configuração do torneio**:
@@ -21,4 +21,5 @@ O que vale para o aparelho, em qualquer torneio: tema, idioma e som.
 _Evite_: configurações do torneio, settings
 
 **Ante**:
-Aposta obrigatória de todos os jogadores, somada aos blinds em um nível. Ainda não existe no Pomer.
+Aposta obrigatória que vale em um nível, além dos blinds, seja qual for a forma de pagar (por jogador ou pelo big blind). Um nível pode não ter ante.
+_Evite_: BB ante, big blind ante
