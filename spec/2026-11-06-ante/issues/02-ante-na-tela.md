@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 Blocked by: 01
 
 # 02: Ante na tela
@@ -15,3 +15,7 @@ Spec: `spec/2026-11-06-ante/spec.md` (regras 7 a 9)
 - [ ] Os comportamentos acima têm testes pelo App.
 - [ ] O editor, a prévia e o relógio com ante foram conferidos em largura de celular, nos temas claro e escuro.
 - [ ] `npm test` e `npm run build` passam.
+
+## Comments
+
+- 2026-11-06: largura de celular (390px) conferida pelo agente com Chromium headless, nos temas claro e escuro: grade 2×2 no editor, prévia, relógio, próximo nível e histórico com ante, sem erros de página.
