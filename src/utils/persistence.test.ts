@@ -14,7 +14,6 @@ import {
   saveStructure,
   saveTournament,
 } from "@/utils/persistence";
-import { blindLevels, buildStructure } from "@/utils/structures";
 
 const TOURNAMENT_KEY = "pomer-tournament-state";
 const CONFIG_KEY = "pomer-config";
@@ -22,14 +21,12 @@ const NOW = new Date("2026-01-01T12:07:00Z");
 
 const config = (over: Partial<TournamentConfig> = {}): TournamentConfig => ({
   name: "T",
-  levelDuration: 20,
   breakInterval: 2,
   breakDuration: 5,
   primaryColor: "#FF6B6B",
-  structure: "turbo",
   blindStructure: [
     { level: 1, smallBlind: 25, bigBlind: 50, duration: 20 },
-    { level: 2, smallBlind: 50, bigBlind: 100, duration: 20 },
+    { level: 2, smallBlind: 50, bigBlind: 100, duration: 15 },
   ],
   ...over,
 });
@@ -116,6 +113,19 @@ describe("loadTournament", () => {
     expect(loadTournament(NOW)).toEqual({ status: "empty" });
   });
 
+  it("brings back a tournament saved by the previous version with the levels it kept", () => {
+    const older = { ...config(), levelDuration: 99, structure: "turbo" };
+
+    store(tournament({ config: older as TournamentConfig, timeRemaining: 900 }));
+
+    const loaded = loadTournament(NOW);
+
+    expect(loaded.status === "saved" && loaded.state.config.blindStructure).toEqual(
+      config().blindStructure,
+    );
+    expect(loaded.status === "saved" && loaded.state.timeRemaining).toBe(900);
+  });
+
   it("corrects what older versions left in the saved state", () => {
     const finished = (level: number) => ({
       level,
@@ -181,7 +191,6 @@ describe("last configuration", () => {
     ["an array", JSON.stringify([config()])],
     ["null", "null"],
     ["a name that is not text", JSON.stringify({ ...config(), name: 3 })],
-    ["a duration that is not a number", JSON.stringify({ ...config(), levelDuration: "20" })],
     ["a break interval missing", JSON.stringify({ ...config(), breakInterval: undefined })],
     ["a break duration that is null", JSON.stringify({ ...config(), breakDuration: null })],
     ["a colour that is not text", JSON.stringify({ ...config(), primaryColor: 1 })],
@@ -192,24 +201,33 @@ describe("last configuration", () => {
     expect(loadConfig()).toBeNull();
   });
 
-  it("keeps the structure name it was saved with", () => {
-    saveConfig(config({ structure: "large" }));
+  const saved = {
+    id: "house",
+    name: "Casa",
+    updatedAt: "2026-11-06T10:00:00.000Z",
+    levels: [{ level: 1, smallBlind: 25, bigBlind: 50, duration: 15 }],
+  };
 
-    expect(loadConfig()?.structure).toBe("large");
+  it("remembers the chosen structure by its id", () => {
+    saveStructure(saved);
+    saveConfig(config({ structureId: "house" }));
+
+    expect(loadConfig()?.structureId).toBe("house");
   });
 
-  it.each<[string, Record<string, unknown>, string]>([
-    ["turbo levels", { blindStructure: buildStructure("turbo", 10) }, "turbo"],
-    ["small levels", { blindStructure: buildStructure("small", 15) }, "small"],
-    ["large levels", { blindStructure: buildStructure("large", 20) }, "large"],
-    ["levels of no structure", { blindStructure: blindLevels(30, 9, 20) }, "medium"],
-    ["an unknown name", { structure: "huge", blindStructure: buildStructure("small", 20) }, "small"],
-  ])("deduces the structure of an older configuration with %s", (_, over, name) => {
-    const { structure: _structure, ...older } = config();
+  it("forgets the chosen structure once it was deleted", () => {
+    saveConfig(config({ structureId: "house" }));
 
-    localStorage.setItem(CONFIG_KEY, JSON.stringify({ ...older, ...over }));
+    expect(loadConfig()).toEqual(config());
+  });
 
-    expect(loadConfig()).toEqual({ ...older, ...over, structure: name });
+  it("brings back a configuration saved by the previous version filled, without a chosen structure", () => {
+    localStorage.setItem(
+      CONFIG_KEY,
+      JSON.stringify({ ...config(), levelDuration: 20, structure: "turbo" }),
+    );
+
+    expect(loadConfig()).toEqual(config());
   });
 
   it("survives a reset of the tournament", () => {

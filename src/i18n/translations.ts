@@ -20,7 +20,6 @@ export const translations = {
     // Configuration
     tournamentConfiguration: "Configuração do Torneio",
     tournamentNameLabel: "Nome do Torneio",
-    levelDuration: "Duração dos Níveis (min)",
     breakInterval: "Intervalo de Break (níveis)",
     breakDuration: "Duração do Break (min)",
     primaryColor: "Cor Primária",
@@ -68,10 +67,6 @@ export const translations = {
     english: "English",
 
     // Structure Options
-    structureSmall: "Pequeno (25/50 - 15 níveis)",
-    structureMedium: "Médio (50/100 - 20 níveis)",
-    structureLarge: "Grande (100/200 - 25 níveis)",
-    structureTurbo: "Turbo (25/50 - 12 níveis, 10min)",
 
     // Descriptions
     chooseColorDescription:
@@ -98,6 +93,8 @@ export const translations = {
     // Blind structures screen
     structuresTitle: "Estruturas de blinds",
     manageStructures: "Gerenciar estruturas",
+    createFirstStructure: "Crie a sua primeira estrutura de blinds para iniciar o torneio.",
+    structureRequired: "Escolha uma estrutura.",
     back: "Voltar",
     newStructure: "Nova estrutura",
     noStructuresYet: "Nenhuma estrutura salva ainda. Crie a primeira.",
@@ -132,7 +129,6 @@ export const translations = {
     // Configuration
     tournamentConfiguration: "Configuración del Torneo",
     tournamentNameLabel: "Nombre del Torneo",
-    levelDuration: "Duración de los Niveles (min)",
     breakInterval: "Intervalo de Descanso (niveles)",
     breakDuration: "Duración del Descanso (min)",
     primaryColor: "Color Primario",
@@ -180,10 +176,6 @@ export const translations = {
     english: "Inglés",
 
     // Structure Options
-    structureSmall: "Pequeño (25/50 - 15 niveles)",
-    structureMedium: "Medio (50/100 - 20 niveles)",
-    structureLarge: "Grande (100/200 - 25 niveles)",
-    structureTurbo: "Turbo (25/50 - 12 niveles, 10min)",
 
     // Descriptions
     chooseColorDescription:
@@ -210,6 +202,8 @@ export const translations = {
     // Blind structures screen
     structuresTitle: "Estructuras de ciegas",
     manageStructures: "Gestionar estructuras",
+    createFirstStructure: "Crea tu primera estructura de ciegas para iniciar el torneo.",
+    structureRequired: "Elige una estructura.",
     back: "Volver",
     newStructure: "Nueva estructura",
     noStructuresYet: "Aún no hay estructuras guardadas. Crea la primera.",
@@ -244,7 +238,6 @@ export const translations = {
     // Configuration
     tournamentConfiguration: "Tournament Configuration",
     tournamentNameLabel: "Tournament Name",
-    levelDuration: "Level Duration (min)",
     breakInterval: "Break Interval (levels)",
     breakDuration: "Break Duration (min)",
     primaryColor: "Primary Color",
@@ -292,10 +285,6 @@ export const translations = {
     english: "English",
 
     // Structure Options
-    structureSmall: "Small (25/50 - 15 levels)",
-    structureMedium: "Medium (50/100 - 20 levels)",
-    structureLarge: "Large (100/200 - 25 levels)",
-    structureTurbo: "Turbo (25/50 - 12 levels, 10min)",
 
     // Descriptions
     chooseColorDescription: "Choose a color to customize the tournament theme",
@@ -321,6 +310,8 @@ export const translations = {
     // Blind structures screen
     structuresTitle: "Blind structures",
     manageStructures: "Manage structures",
+    createFirstStructure: "Create your first blind structure to start the tournament.",
+    structureRequired: "Choose a structure.",
     back: "Back",
     newStructure: "New structure",
     noStructuresYet: "No saved structures yet. Create the first one.",

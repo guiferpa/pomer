@@ -9,7 +9,6 @@ import {
   ConfigForm,
   Countdown,
   Logo,
-  ManageStructuresLink,
   StructuresScreen,
 } from "@/components";
 import { I18nProvider } from "@/contexts/I18nContext";
@@ -65,17 +64,11 @@ function App() {
         {route === "structures" ? (
           <StructuresScreen onBack={() => navigate("main")} />
         ) : !isConfigured ? (
-          <>
-            <ConfigForm
-              initialConfig={savedConfig || undefined}
-              savedTournamentLost={showLostWarning}
-              onStart={handleStartTournament}
-            />
-            {/* Provisório: o ticket 03 leva o link para junto da escolha de estrutura. */}
-            <div className="flex justify-center pt-4">
-              <ManageStructuresLink />
-            </div>
-          </>
+          <ConfigForm
+            initialConfig={savedConfig || undefined}
+            savedTournamentLost={showLostWarning}
+            onStart={handleStartTournament}
+          />
         ) : (
           <div className="space-y-6">
             {/* Header */}

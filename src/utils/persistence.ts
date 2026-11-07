@@ -7,11 +7,7 @@ import type {
 } from "@/types/tournament";
 
 import { repairSavedState } from "@/utils/transitions";
-import {
-  deduceStructure,
-  isStructureName,
-  levelErrors,
-} from "@/utils/structures";
+import { levelErrors } from "@/utils/structures";
 
 // Único lugar que lê e grava o torneio, a última configuração e as estruturas
 // de blinds. O tema e o idioma ficam com quem cuida deles.
@@ -104,30 +100,38 @@ export const saveTournament = (state: TournamentState): void => {
   }
 };
 
-// O nome da estrutura é opcional na leitura: configurações antigas não o
-// guardavam, e ele é deduzido depois.
-const isConfig = (
-  parsed: unknown,
-): parsed is Omit<TournamentConfig, "structure"> & { structure?: unknown } =>
+// Configurações da versão anterior também guardavam a duração dos níveis e o
+// nome de uma estrutura pronta: elas continuam válidas, e esses campos são
+// ignorados.
+const isConfig = (parsed: unknown): parsed is Record<string, any> =>
   isObject(parsed) &&
   typeof parsed.name === "string" &&
-  isNumber(parsed.levelDuration) &&
   isNumber(parsed.breakInterval) &&
   isNumber(parsed.breakDuration) &&
   typeof parsed.primaryColor === "string" &&
   hasUsableLevels(parsed.blindStructure);
 
-// A última configuração usada, para preencher o formulário, sempre com o nome da
-// estrutura. Inválida, é ignorada e o formulário usa os valores padrão.
+// A última configuração usada, para preencher o formulário. Inválida, é
+// ignorada e o formulário usa os valores padrão. A estrutura escolhida só volta
+// se ainda estiver salva.
 export const loadConfig = (): TournamentConfig | null => {
   const raw = localStorage.getItem(CONFIG_KEY);
   const parsed = raw === null ? null : parse(raw);
 
   if (!isConfig(parsed)) return null;
 
-  return isStructureName(parsed.structure)
-    ? { ...parsed, structure: parsed.structure }
-    : { ...parsed, structure: deduceStructure(parsed.blindStructure) };
+  const { name, breakInterval, breakDuration, primaryColor, blindStructure } =
+    parsed;
+  const config: TournamentConfig = {
+    name,
+    breakInterval,
+    breakDuration,
+    primaryColor,
+    blindStructure,
+  };
+  const chosen = loadStructures().some((s) => s.id === parsed.structureId);
+
+  return chosen ? { ...config, structureId: parsed.structureId } : config;
 };
 
 export const saveConfig = (config: TournamentConfig): void => {

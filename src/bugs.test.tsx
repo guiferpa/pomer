@@ -9,19 +9,54 @@ import { ConfigForm } from "@/components/form-config";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { useTournament } from "@/hooks/useTournament";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { blindLevels, buildStructure } from "@/utils/structures";
 
 const KEY = "pomer-tournament-state";
 let plays = 0;
 
+// Every level has `duration` minutes. From the 4th level on, the small blind
+// alternates rises of 1.5x and 4/3x of the first one (4, 6, 8, 12, 16, 24...).
+const blindLevels = (firstBlind: number, levels: number, duration: number) =>
+  Array.from({ length: levels }, (_, i) => {
+    const level = i + 1;
+    const step = level - 4;
+    const times = level <= 4 ? level : 4 * 2 ** Math.floor(step / 2) * (step % 2 === 1 ? 1.5 : 1);
+    const smallBlind = firstBlind * times;
+
+    return { level, smallBlind, bigBlind: smallBlind * 2, duration };
+  });
+
 const cfg = (levels: number, breakInterval: number, duration = 1, breakDuration = 1) => ({
   name: "T",
-  levelDuration: duration,
   breakInterval,
   breakDuration,
   blindStructure: blindLevels(25, levels, duration),
   primaryColor: "#FF6B6B",
 });
+
+// A structure saved on the structures screen.
+const HOUSE = {
+  id: "house",
+  name: "Casa",
+  updatedAt: "2026-01-01T10:00:00.000Z",
+  levels: blindLevels(25, 12, 10),
+};
+const saveHouse = () => localStorage.setItem("pomer-structures", JSON.stringify([HOUSE]));
+
+// The house structure saved and chosen in the last configuration, so the form
+// opens ready to start, with its default name and colour.
+const chooseHouse = (over: Record<string, unknown> = {}) => {
+  saveHouse();
+  localStorage.setItem(
+    "pomer-config",
+    JSON.stringify({
+      ...cfg(12, 3, 10, 10),
+      name: "Torneio Pomer",
+      primaryColor: "#006FEE",
+      structureId: HOUSE.id,
+      ...over,
+    }),
+  );
+};
 
 const seed = (over: Record<string, any>) => {
   const { config = cfg(5, 10), currentLevel = 1, isBreak = false } = over;
@@ -164,14 +199,6 @@ describe("useTournament", () => {
     tick(2);
     expect(result.current.state.currentLevel).toBe(3);
     expect(result.current.state.timeRemaining).toBeLessThan(16 * 60);
-  });
-});
-
-describe("blind structures", () => {
-  it("T6 blinds never jump more than 2x between levels (large structure, 25 levels)", () => {
-    const s = buildStructure("large", 20);
-    const jumps = s.slice(1).map((l, i) => l.smallBlind / s[i].smallBlind);
-    expect(Math.max(...jumps)).toBeLessThanOrEqual(2);
   });
 });
 
@@ -330,6 +357,7 @@ describe("ConfigForm", () => {
     ...cfg(12, 3, 10, 5),
     name: "Saved",
     primaryColor: "#FF6B6B",
+    structureId: HOUSE.id,
   });
   const renderForm = (onStart: any, initialConfig?: any) =>
     render(
@@ -338,21 +366,18 @@ describe("ConfigForm", () => {
       </I18nProvider>,
     );
 
+  beforeEach(() => saveHouse());
+
   it("T15 keeps the saved colour and structure when reopened", () => {
     const onStart = vi.fn();
     const { container } = renderForm(onStart, saved());
     fireEvent.submit(container.querySelector("form")!);
     const got = onStart.mock.calls[0][0];
     expect(got.primaryColor).toBe("#FF6B6B");
-    expect(got.blindStructure.length).toBe(12);
+    expect(got.blindStructure).toEqual(HOUSE.levels);
   });
 
   const structureSelect = () => screen.getByRole("button", { name: /Estrutura de Blinds/ });
-  const durationField = () =>
-    screen.getByRole("spinbutton", { name: /Duração dos Níveis/ }) as HTMLInputElement;
-  const typeDuration = (value: string) =>
-    fireEvent.change(durationField(), { target: { value } });
-  const lastConfig = () => JSON.parse(localStorage.getItem("pomer-config")!);
   const startedConfig = () => JSON.parse(localStorage.getItem(KEY)!).config;
   const submit = (container: HTMLElement) =>
     fireEvent.submit(container.querySelector("form")!);
@@ -364,85 +389,20 @@ describe("ConfigForm", () => {
     await waitFor(() => expect(screen.queryByRole("option")).toBeNull());
   };
 
-  const submitAfterChoosing = async (name: RegExp) => {
-    vi.useRealTimers();
-    const onStart = vi.fn();
-    const { container } = renderForm(onStart);
-    await chooseStructure(name);
-    fireEvent.submit(container.querySelector("form")!);
-
-    return onStart.mock.calls[0][0];
-  };
-
-  // C6 shows the selector reaches Turbo, so a failing T16 points at bug 6.
-  it("C6 choosing Turbo yields its 12 levels", async () => {
-    const got = await submitAfterChoosing(/Turbo/);
-    expect(got.blindStructure.length).toBe(12);
-  });
-
-  it("T16 choosing Turbo yields 10-minute levels, as its label promises", async () => {
-    const got = await submitAfterChoosing(/Turbo/);
-    expect(got.blindStructure[0].duration).toBe(10);
-  });
-
-  it("choosing a structure fills the level duration with its own", async () => {
-    vi.useRealTimers();
-    renderForm(vi.fn());
-    expect(durationField().value).toBe("20");
-    await chooseStructure(/Turbo/);
-    expect(durationField().value).toBe("10");
-    await chooseStructure(/Grande/);
-    expect(durationField().value).toBe("20");
-  });
-
-  it("switching structure overwrites the duration typed before", async () => {
-    vi.useRealTimers();
-    renderForm(vi.fn());
-    typeDuration("45");
-    await chooseStructure(/Turbo/);
-    expect(durationField().value).toBe("10");
-  });
-
-  it("the duration typed after choosing the structure is the one the tournament uses", async () => {
-    vi.useRealTimers();
-    const onStart = vi.fn();
-    const { container } = renderForm(onStart);
-    await chooseStructure(/Turbo/);
-    typeDuration("7");
-    submit(container);
-    const got = onStart.mock.calls[0][0];
-    expect(got.structure).toBe("turbo");
-    expect(got.levelDuration).toBe(7);
-    expect(got.blindStructure.length).toBe(12);
-    expect(got.blindStructure.every((l: { duration: number }) => l.duration === 7)).toBe(true);
-  });
-
-  it("the last configuration keeps the structure name", async () => {
-    vi.useRealTimers();
-    const { container } = render(<App />);
-    await chooseStructure(/Pequeno/);
-    submit(container);
-    expect(lastConfig().structure).toBe("small");
-    expect(startedConfig().blindStructure.length).toBe(15);
-  });
-
-  it("after a reset the form comes back with the structure, duration and colour left", async () => {
+  it("after a reset the form comes back with the structure and colour left", async () => {
     vi.useRealTimers();
     const view = render(<App />);
-    await chooseStructure(/Turbo/);
-    typeDuration("15");
+    await chooseStructure(/Casa/);
     fireEvent.click(screen.getByRole("button", { name: /Vermelho/ }));
     submit(view.container);
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     fireEvent.click(screen.getByRole("button", { name: "Resetar" }));
 
     const reopened = () => {
-      expect(structureSelect().textContent).toContain("Turbo");
-      expect(durationField().value).toBe("15");
+      expect(structureSelect().textContent).toContain("Casa");
       submit(document.body);
       expect(startedConfig().primaryColor).toBe("#FF6B6B");
-      expect(startedConfig().blindStructure.length).toBe(12);
-      expect(startedConfig().blindStructure[0].duration).toBe(15);
+      expect(startedConfig().blindStructure).toEqual(HOUSE.levels);
     };
 
     reopened();
@@ -453,32 +413,8 @@ describe("ConfigForm", () => {
     reopened();
   });
 
-  it.each<[string, number, number, string, number]>([
-    ["turbo", 12, 25, "Turbo", 12],
-    ["large", 25, 100, "Grande", 25],
-    ["small", 15, 25, "Pequeno", 15],
-    ["no", 9, 30, "Médio", 20],
-  ])(
-    "an older configuration with %s levels opens on the deduced structure, keeping its duration",
-    (_, levels, firstBlind, label, startedLevels) => {
-      localStorage.setItem(
-        "pomer-config",
-        JSON.stringify({
-          ...cfg(levels, 3, 15, 5),
-          blindStructure: blindLevels(firstBlind, levels, 15),
-        }),
-      );
-      const { container } = render(<App />);
-      expect(structureSelect().textContent).toContain(label);
-      expect(durationField().value).toBe("15");
-      submit(container);
-      expect(startedConfig().blindStructure.length).toBe(startedLevels);
-      expect(startedConfig().primaryColor).toBe("#FF6B6B");
-    },
-  );
-
   it("a tournament already started keeps the levels it saved", () => {
-    const old = buildStructure("large", 1).map((level, i) =>
+    const old = blindLevels(100, 25, 1).map((level, i) =>
       i < 20 ? level : { ...level, smallBlind: 332526, bigBlind: 665052 },
     );
     seed({ config: { ...cfg(25, 30), blindStructure: old }, currentLevel: 21 });
@@ -491,19 +427,19 @@ describe("ConfigForm", () => {
   it("T18 re-clicking the already selected structure does not crash the form", async () => {
     vi.useRealTimers();
     const onStart = vi.fn();
-    const { container } = renderForm(onStart);
-    expect(structureSelect().textContent).toContain("Médio");
-    await chooseStructure(/Médio/);
-    expect(structureSelect().textContent).toContain("Médio");
+    const { container } = renderForm(onStart, saved());
+    expect(structureSelect().textContent).toContain("Casa");
+    await chooseStructure(/Casa/);
+    expect(structureSelect().textContent).toContain("Casa");
     fireEvent.submit(container.querySelector("form")!);
-    expect(onStart.mock.calls[0][0].blindStructure.length).toBe(20);
+    expect(onStart.mock.calls[0][0].blindStructure).toEqual(HOUSE.levels);
   });
 
   it("T17 a number field can be cleared while typing", () => {
     renderForm(vi.fn());
-    const [duration] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
-    fireEvent.change(duration, { target: { value: "" } });
-    expect(duration.value).toBe("");
+    const [interval] = screen.getAllByRole("spinbutton") as HTMLInputElement[];
+    fireEvent.change(interval, { target: { value: "" } });
+    expect(interval.value).toBe("");
   });
 
   const field = (name: RegExp) => screen.getByRole("spinbutton", { name }) as HTMLInputElement;
@@ -515,23 +451,23 @@ describe("ConfigForm", () => {
       .join(" ");
 
   it("starting with an empty field shows the error on that field and does not start", () => {
+    chooseHouse();
     const { container } = render(<App />);
-    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    fireEvent.change(field(/Duração do Break/), { target: { value: "" } });
     submit(container);
-    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBe("true");
-    expect(errorOf(field(/Duração dos Níveis/))).toContain("Preencha este campo.");
+    expect(field(/Duração do Break/).getAttribute("aria-invalid")).toBe("true");
+    expect(errorOf(field(/Duração do Break/))).toContain("Preencha este campo.");
     expect(localStorage.getItem(KEY)).toBeNull();
     expect(screen.getByRole("button", { name: "Iniciar Torneio" })).toBeTruthy();
   });
 
   it.each<[RegExp, string, string]>([
-    [/Duração dos Níveis/, "0", "1 a 60"],
-    [/Duração dos Níveis/, "61", "1 a 60"],
     [/Intervalo de Break/, "0", "1 a 10"],
     [/Intervalo de Break/, "11", "1 a 10"],
     [/Duração do Break/, "0", "1 a 30"],
     [/Duração do Break/, "31", "1 a 30"],
   ])("starting with %s at %s shows the limits on that field and does not start", (name, value, limits) => {
+    chooseHouse();
     const { container } = render(<App />);
     fireEvent.change(field(name), { target: { value } });
     submit(container);
@@ -541,32 +477,33 @@ describe("ConfigForm", () => {
   });
 
   it("values at the limits start the tournament", () => {
+    chooseHouse();
     const { container } = render(<App />);
-    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "60" } });
     fireEvent.change(field(/Intervalo de Break/), { target: { value: "1" } });
     fireEvent.change(field(/Duração do Break/), { target: { value: "30" } });
     submit(container);
-    expect(startedConfig()).toMatchObject({ levelDuration: 60, breakInterval: 1, breakDuration: 30 });
+    expect(startedConfig()).toMatchObject({ breakInterval: 1, breakDuration: 30 });
   });
 
   it("correcting the value starts the tournament with the value typed", () => {
+    chooseHouse();
     const { container } = render(<App />);
-    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "" } });
+    fireEvent.change(field(/Duração do Break/), { target: { value: "" } });
     fireEvent.change(field(/Intervalo de Break/), { target: { value: "50" } });
     submit(container);
     expect(localStorage.getItem(KEY)).toBeNull();
 
-    fireEvent.change(field(/Duração dos Níveis/), { target: { value: "25" } });
-    expect(field(/Duração dos Níveis/).getAttribute("aria-invalid")).toBeNull();
+    fireEvent.change(field(/Duração do Break/), { target: { value: "25" } });
+    expect(field(/Duração do Break/).getAttribute("aria-invalid")).toBeNull();
     fireEvent.change(field(/Intervalo de Break/), { target: { value: "4" } });
     submit(container);
-    expect(startedConfig()).toMatchObject({ levelDuration: 25, breakInterval: 4 });
-    expect(startedConfig().blindStructure[0].duration).toBe(25);
+    expect(startedConfig()).toMatchObject({ breakDuration: 25, breakInterval: 4 });
+    expect(startedConfig().blindStructure).toEqual(HOUSE.levels);
   });
 
   it.each<[string, RegExp, string, string]>([
-    ["es", /Duración de los Niveles/, "Completa este campo.", "Usa un número entero de 1 a 60."],
-    ["en", /Level Duration/, "Fill in this field.", "Use a whole number from 1 to 60."],
+    ["es", /Duración del Descanso/, "Completa este campo.", "Usa un número entero de 1 a 30."],
+    ["en", /Break Duration/, "Fill in this field.", "Use a whole number from 1 to 30."],
   ])("the field errors exist in %s", (language, name, required, outOfRange) => {
     localStorage.setItem("pomer-language", language);
     const { container } = render(<App />);
@@ -1029,6 +966,7 @@ describe("a saved tournament that cannot be recovered", () => {
   });
 
   it("drops the warning once a new tournament starts", () => {
+    chooseHouse();
     localStorage.setItem(KEY, "{}");
     const { container } = render(<App />);
     fireEvent.submit(container.querySelector("form")!);
@@ -1046,7 +984,7 @@ describe("a saved tournament that cannot be recovered", () => {
   });
 
   it("empties the tournament key on reset and refills the form with the last configuration", () => {
-    localStorage.setItem("pomer-config", JSON.stringify({ ...cfg(5, 10), name: "Friday" }));
+    chooseHouse({ name: "Friday" });
     const { container } = render(<App />);
     expect(screen.getByDisplayValue("Friday")).toBeTruthy();
     fireEvent.submit(container.querySelector("form")!);
@@ -1216,6 +1154,7 @@ describe.each([
   });
 
   it("stays silent when starting the tournament", () => {
+    chooseHouse();
     const { container } = open();
     fireEvent.submit(container.querySelector("form")!);
     expect(button("Pausar")).toBeTruthy();
@@ -1260,6 +1199,7 @@ describe("analytics", () => {
 
   it("sends tournament_started with the tournament name", () => {
     const events = track();
+    chooseHouse();
     const { container } = render(<App />);
     fireEvent.submit(container.querySelector("form")!);
     expect(events()).toEqual([
@@ -1778,6 +1718,7 @@ describe("app preferences only in the settings menu", () => {
   const field = (name: RegExp) => screen.queryByRole("button", { name });
 
   it("the tournament form has no theme or language field", () => {
+    saveHouse();
     render(<App />);
     expect(screen.getByRole("button", { name: /Estrutura de Blinds/ })).toBeTruthy();
     expect(field(/Tema da Interface/)).toBeNull();
@@ -1839,6 +1780,7 @@ describe("app preferences only in the settings menu", () => {
   });
 
   it("the colour stays on the form and goes to the tournament", () => {
+    chooseHouse();
     render(<App />);
     fireEvent.change(screen.getByRole("textbox", { name: /Nome do Torneio/ }), {
       target: { value: "Casa" },
