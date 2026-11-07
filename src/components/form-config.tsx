@@ -10,18 +10,16 @@ import {
   Alert,
   Button,
   Card,
-  Description,
   FieldError,
   Input,
   Label,
   ListBox,
   Select,
   TextField,
-  useTheme,
 } from "@heroui/react";
 
 import { Logo } from "./logo";
-import { LanguageSelector } from "./language-selector";
+import { SettingsMenu } from "./settings-menu";
 
 import {
   DEFAULT_STRUCTURE,
@@ -126,17 +124,11 @@ const getColorOptions = (t: Translate) => [
   { key: "#FFD43B", label: t("yellow"), color: "#FFD43B" },
 ];
 
-const getThemeOptions = (t: Translate) => [
-  { key: "light", label: t("lightMode") },
-  { key: "dark", label: t("darkMode") },
-];
-
 export const ConfigForm: React.FC<ConfigFormProps> = ({
   onStart,
   initialConfig,
   savedTournamentLost = false,
 }) => {
-  const { resolvedTheme, setTheme } = useTheme();
   const { t } = useI18n();
 
   // O que o organizador escolheu e digitou. A configuração do torneio, com os
@@ -189,9 +181,12 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
     <div className="w-full max-w-2xl mx-auto flex flex-col">
       <Card className="flex-1 flex flex-col">
         <Card.Header className="flex flex-col gap-1 flex-shrink-0">
-          <div className="flex items-center justify-center gap-2">
+          <div className="relative flex items-center justify-center gap-2">
             <Logo color={selectedColor} size={32} />
             <h1 className="text-2xl font-bold">{t("appName")}</h1>
+            <div className="absolute right-0">
+              <SettingsMenu />
+            </div>
           </div>
           <p className="text-center text-muted">
             {t("tournamentConfiguration")}
@@ -284,43 +279,6 @@ export const ConfigForm: React.FC<ConfigFormProps> = ({
                 {t("chooseColorDescription")}
               </p>
             </div>
-
-            <Select
-              variant="secondary"
-              value={resolvedTheme}
-              onChange={(key) => {
-                if (key) {
-                  setTheme(String(key));
-                }
-              }}
-            >
-              <Label className="block text-sm font-medium mb-2">
-                {t("interfaceTheme")}
-              </Label>
-              <Select.Trigger>
-                <Select.Value />
-                <Select.Indicator />
-              </Select.Trigger>
-              <Description className="block text-xs text-muted mt-2">
-                {t("chooseThemeDescription")}
-              </Description>
-              <Select.Popover>
-                <ListBox>
-                  {getThemeOptions(t).map((option) => (
-                    <ListBox.Item
-                      key={option.key}
-                      id={option.key}
-                      textValue={option.label}
-                    >
-                      {option.label}
-                      <ListBox.ItemIndicator />
-                    </ListBox.Item>
-                  ))}
-                </ListBox>
-              </Select.Popover>
-            </Select>
-
-            <LanguageSelector />
 
             <Select
               variant="secondary"

@@ -76,7 +76,6 @@ export const translations = {
     // Descriptions
     chooseColorDescription:
       "Escolha uma cor para personalizar o tema do torneio",
-    chooseThemeDescription: "Escolha entre modo claro ou escuro",
     selectStructurePlaceholder: "Selecione uma estrutura",
 
     // Countdown specific
@@ -189,7 +188,6 @@ export const translations = {
     // Descriptions
     chooseColorDescription:
       "Elige un color para personalizar el tema del torneo",
-    chooseThemeDescription: "Elige entre modo claro u oscuro",
     selectStructurePlaceholder: "Selecciona una estructura",
 
     // Countdown specific
@@ -301,7 +299,6 @@ export const translations = {
 
     // Descriptions
     chooseColorDescription: "Choose a color to customize the tournament theme",
-    chooseThemeDescription: "Choose between light or dark mode",
     selectStructurePlaceholder: "Select a structure",
 
     // Countdown specific
