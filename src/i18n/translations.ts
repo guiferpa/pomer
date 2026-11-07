@@ -95,6 +95,21 @@ export const translations = {
     // Form validation
     fieldRequired: "Preencha este campo.",
     fieldOutOfRange: "Use um número inteiro de {min} a {max}.",
+
+    // Blind structures screen
+    structuresTitle: "Estruturas de blinds",
+    manageStructures: "Gerenciar estruturas",
+    back: "Voltar",
+    newStructure: "Nova estrutura",
+    noStructuresYet: "Nenhuma estrutura salva ainda. Crie a primeira.",
+    structureName: "Nome da estrutura",
+    levelDurationShort: "Duração (min)",
+    addLevel: "Adicionar nível",
+    removeLevel: "Remover nível {n}",
+    save: "Salvar",
+    structureNameTaken: "Já existe uma estrutura com este nome.",
+    positiveInteger: "Use um número inteiro maior que zero.",
+    bigBelowSmall: "O big blind deve ser maior ou igual ao small blind.",
   },
 
   es: {
@@ -193,6 +208,21 @@ export const translations = {
     // Form validation
     fieldRequired: "Completa este campo.",
     fieldOutOfRange: "Usa un número entero de {min} a {max}.",
+
+    // Blind structures screen
+    structuresTitle: "Estructuras de ciegas",
+    manageStructures: "Gestionar estructuras",
+    back: "Volver",
+    newStructure: "Nueva estructura",
+    noStructuresYet: "Aún no hay estructuras guardadas. Crea la primera.",
+    structureName: "Nombre de la estructura",
+    levelDurationShort: "Duración (min)",
+    addLevel: "Añadir nivel",
+    removeLevel: "Quitar nivel {n}",
+    save: "Guardar",
+    structureNameTaken: "Ya existe una estructura con este nombre.",
+    positiveInteger: "Usa un número entero mayor que cero.",
+    bigBelowSmall: "La ciega grande debe ser mayor o igual a la ciega pequeña.",
   },
 
   en: {
@@ -290,6 +320,21 @@ export const translations = {
     // Form validation
     fieldRequired: "Fill in this field.",
     fieldOutOfRange: "Use a whole number from {min} to {max}.",
+
+    // Blind structures screen
+    structuresTitle: "Blind structures",
+    manageStructures: "Manage structures",
+    back: "Back",
+    newStructure: "New structure",
+    noStructuresYet: "No saved structures yet. Create the first one.",
+    structureName: "Structure name",
+    levelDurationShort: "Duration (min)",
+    addLevel: "Add level",
+    removeLevel: "Remove level {n}",
+    save: "Save",
+    structureNameTaken: "A structure with this name already exists.",
+    positiveInteger: "Use a whole number greater than zero.",
+    bigBelowSmall: "The big blind must be greater than or equal to the small blind.",
   },
 };
 
