@@ -180,3 +180,12 @@ export const saveStructure = (structure: BlindStructure): void => {
     JSON.stringify([structure, ...others].sort(byMostRecent)),
   );
 };
+
+// Apaga a estrutura de mesmo id. Um torneio em andamento guarda a própria cópia
+// dos níveis, e a última configuração que a escolheu volta sem estrutura.
+export const deleteStructure = (id: string): void => {
+  localStorage.setItem(
+    STRUCTURES_KEY,
+    JSON.stringify(loadStructures().filter((s) => s.id !== id)),
+  );
+};
