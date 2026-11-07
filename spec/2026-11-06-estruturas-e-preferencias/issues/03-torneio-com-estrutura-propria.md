@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02
 
 # 03: Torneio com estrutura própria
@@ -19,3 +19,7 @@ Spec: `spec/2026-11-06-estruturas-e-preferencias/spec.md` (regras 5 e 21 a 29)
 - [ ] Os testes que dependiam das estruturas prontas ou da duração do nível foram atualizados, sem perder o comportamento que verificam.
 - [ ] A tela de estruturas, o formulário de torneio e o menu de configurações foram conferidos em largura de celular, nos temas claro e escuro (vindo do ticket 05, adiado).
 - [ ] `npm test` e `npm run build` passam.
+
+## Comments
+
+- 2026-11-06: largura de celular (390px) conferida pelo agente com Chromium headless, nos temas claro e escuro: formulário vazio com convite, tela de estruturas, erros do editor, prévia, relógio e refresh do relógio, sem erros de página. O usuário pediu para seguir sem a revisão de código, por causa do torneio de 2026-11-07.
