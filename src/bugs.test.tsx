@@ -1772,3 +1772,79 @@ describe("controls (must pass)", () => {
     expect(screen.getByRole("button", { name: "Próximo Nível" })).toBeTruthy();
   });
 });
+
+describe("app preferences only in the settings menu", () => {
+  const button = (name: string | RegExp) => screen.getByRole("button", { name });
+  const field = (name: RegExp) => screen.queryByRole("button", { name });
+
+  it("the tournament form has no theme or language field", () => {
+    render(<App />);
+    expect(screen.getByRole("button", { name: /Estrutura de Blinds/ })).toBeTruthy();
+    expect(field(/Tema da Interface/)).toBeNull();
+    expect(field(/Idioma/)).toBeNull();
+  });
+
+  it("the settings menu opens from the tournament form, with theme, language and sound", () => {
+    render(<App />);
+    fireEvent.click(button("Configurações"));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("Tema da Interface");
+    expect(dialog.textContent).toContain("Idioma");
+    fireEvent.click(button("Testar Som"));
+    flushAudio();
+    expect(plays).toBe(1);
+  });
+
+  // Waits for the list to close, which proves the Select handled the choice.
+  const choose = async (select: RegExp, option: string) => {
+    fireEvent.click(screen.getByRole("button", { name: select }));
+    fireEvent.click(await screen.findByRole("option", { name: option }));
+    await waitFor(() => expect(screen.queryByRole("option")).toBeNull());
+  };
+  const theme = () => document.documentElement.getAttribute("data-theme");
+  afterEach(() => {
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("light", "dark");
+  });
+
+  it("the theme and the language chosen in the menu on the form survive a refresh", async () => {
+    vi.useRealTimers();
+    const view = render(<App />);
+    fireEvent.click(button("Configurações"));
+    await choose(/Tema da Interface/, "Modo Escuro");
+    await choose(/Idioma/, "English");
+    expect(theme()).toBe("dark");
+    view.unmount();
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark");
+
+    render(<App />);
+    expect(theme()).toBe("dark");
+    expect(screen.getByRole("button", { name: "Start Tournament" })).toBeTruthy();
+  });
+
+  it("the theme chosen in the menu on the clock survives a refresh on the clock", async () => {
+    seed({});
+    vi.useRealTimers();
+    const view = render(<App />);
+    fireEvent.click(button("Configurações"));
+    await choose(/Tema da Interface/, "Modo Escuro");
+    view.unmount();
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.classList.remove("dark");
+
+    render(<App />);
+    expect(theme()).toBe("dark");
+    expect(button("Próximo Nível")).toBeTruthy();
+  });
+
+  it("the colour stays on the form and goes to the tournament", () => {
+    render(<App />);
+    fireEvent.change(screen.getByRole("textbox", { name: /Nome do Torneio/ }), {
+      target: { value: "Casa" },
+    });
+    fireEvent.click(button(/Verde/));
+    fireEvent.click(button("Iniciar Torneio"));
+    expect(JSON.parse(localStorage.getItem(KEY)!).config.primaryColor).toBe("#51CF66");
+  });
+});
